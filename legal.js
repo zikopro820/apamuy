@@ -24,7 +24,8 @@ function pintarEmpresa() {
 /* ---------- Aviso de cookies (solo usamos lo necesario para que la web funcione) ---------- */
 function avisoCookies() {
   if (store.get("am_cookies", 0) || $("#ckAviso")) return;
-  document.body.insertAdjacentHTML("beforeend", `<div class="ck-aviso" id="ckAviso" role="region" aria-label="Aviso de cookies"><p>Usamos almacenamiento local y cookies <b>necesarias</b> para tu sesión, tu carrito y tu dirección. No usamos publicidad ni rastreo. <a href="cookies">Más información</a></p><button class="btn btn-dark btn-sm" id="ckOk">Entendido</button></div>`);
+  const ref = $(".top") || document.body.firstElementChild;
+  ref.insertAdjacentHTML(ref.classList?.contains("top") ? "afterend" : "beforebegin", `<div class="ck-aviso" id="ckAviso" role="region" aria-label="Aviso de cookies"><p>Usamos almacenamiento local y cookies <b>necesarias</b> para tu sesión, tu carrito y tu dirección. No usamos publicidad ni rastreo. <a href="cookies">Más información</a></p><button class="btn btn-dark btn-sm" id="ckOk">Entendido</button></div>`);
   $("#ckOk").onclick = () => { store.set("am_cookies", Date.now()); $("#ckAviso").remove(); };
 }
 
