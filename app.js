@@ -65,7 +65,8 @@ function elegirDireccion(alListo) {
     <button class="btn btn-light" id="dirNueva">📍 Agregar otra dirección</button>${ds.length ? `<button class="btn btn-red btn-lg" id="dirOk">Usar esta dirección</button>` : ""}</div>`);
   $("#dirNueva", h).onclick = () => editarDireccion(null, alListo);
   h.addEventListener("click", e => { const b = e.target.closest("[data-editar]"); if (b) { e.preventDefault(); editarDireccion(+b.dataset.editar, alListo); } });
-  $("#dirOk", h)?.addEventListener("click", () => { const i = $('[name="dirSel"]:checked', h)?.value; if (i == null) return toast("Elige una dirección", true); DIR.set(ds[+i]); cerrarHoja(); alListo && alListo(); });
+  $("#dirOk", h)?.addEventListener("click", () => { const i = $('[name="dirSel"]:checked', h)?.value; if (i == null) return toast("Elige una dirección", true); DIR.set(ds[+i]); cerrarHoja();
+    const cc = ciudadCercana(ds[+i]); if (cc) { const a = CIUDAD.get(); if (a.prov !== cc.prov) { CIUDAD.set(cc); if ($("#negocios")) return location.reload(); } } alListo && alListo(); });
 }
 function editarDireccion(i, alListo) {
   const d = i != null ? PERFIL.direcciones[i] : { etiqueta: (PERFIL?.direcciones || []).length ? "Trabajo" : "Casa", texto: "", referencia: "" };
@@ -85,7 +86,9 @@ function editarDireccion(i, alListo) {
     if (!tx) return $("#dE").textContent = "Escribe la dirección."; if (!pos) return $("#dE").textContent = "Marca tu ubicación en el mapa.";
     const nd = { etiqueta: $("#dEt").value, texto: tx, referencia: $("#dRf").value.trim(), lat: pos.lat, lng: pos.lng };
     PERFIL.direcciones = PERFIL.direcciones || []; if (i != null) PERFIL.direcciones[i] = nd; else PERFIL.direcciones.push(nd);
-    await DB.set("usuarios", YO.uid, { direcciones: PERFIL.direcciones }); DIR.set(nd); cerrarHoja(); toast("Dirección guardada"); alListo && alListo(); };
+    await DB.set("usuarios", YO.uid, { direcciones: PERFIL.direcciones }); DIR.set(nd); cerrarHoja(); toast("Dirección guardada");
+    const cc = ciudadCercana(pos); if (cc) { const a = CIUDAD.get(); if (a.prov !== cc.prov || a.dep !== cc.dep) { CIUDAD.set(cc); if ($("#negocios")) return location.reload(); } }
+    alListo && alListo(); };
 }
 
 /* ---------- Encabezado común ---------- */
@@ -93,29 +96,80 @@ function encabezado() {
   $$(".js-entrar").forEach(b => { b.hidden = !!YO; b.onclick = () => pedirEntrar("Entra para guardar tus direcciones y seguir tus pedidos."); });
   $$(".js-yo").forEach(b => { b.hidden = !YO; if (YO) b.innerHTML = YO.foto ? `<img src="${esc(YO.foto)}" alt="Mi perfil">` : esc((PERFIL?.nombre || YO.nombre || YO.email || "?")[0].toUpperCase()); });
   $$(".js-cambiarDir").forEach(b => b.onclick = () => YO ? asegurarCliente(() => elegirDireccion(() => { if (window.recalcular) window.recalcular(); })) : pedirEntrar("Entra para guardar tus direcciones."));
+  $$(".js-ciudad").forEach(b => { b.textContent = CIUDAD.get().prov + " ▾"; b.onclick = () => elegirCiudad(); });
   pintarDir(); pintarBadge();
 }
 
-/* =========== INICIO: lista de negocios =========== */
+/* =========== CIUDAD (provincia) que ve el cliente =========== */
+const CIUDAD = { get: () => store.get("am_ciudad", null) || CONF.ciudadInicial || { dep: "Cusco", prov: "Cusco" },
+  set(c) { const a = CIUDAD.get(); store.set("am_ciudad", { dep: c.dep, prov: c.prov }); if (a.dep !== c.dep || a.prov !== c.prov) { sessionStorage.removeItem("am_dest"); toast(`Ahora ves los negocios de ${c.prov}`); } } };
+function elegirCiudad(alListo) {
+  const c = CIUDAD.get(), deps = Object.keys(window.UBIGEO || {}).sort((a, b) => a.localeCompare(b));
+  const h = hoja(`<button class="x" data-cerrar aria-label="Cerrar">×</button><div class="ck"><h2>¿En qué ciudad estás?</h2><p class="muted">Te mostramos los negocios de toda tu provincia.</p>
+    <button class="btn btn-light" id="cGPS">🎯 Usar mi ubicación</button>
+    <div class="g2"><label>Departamento<select id="cDep">${deps.map(d => `<option ${d === c.dep ? "selected" : ""}>${esc(d)}</option>`).join("")}</select></label><label>Provincia<select id="cProv"></select></label></div>
+    <button class="btn btn-red btn-lg" id="cOk">Ver negocios</button></div>`);
+  const provs = () => { const d = $("#cDep", h).value; $("#cProv", h).innerHTML = Object.keys(UBIGEO[d] || {}).sort((a, b) => a.localeCompare(b)).map(p => `<option ${p === c.prov ? "selected" : ""}>${esc(p)}</option>`).join(""); };
+  provs(); $("#cDep", h).onchange = provs;
+  $("#cGPS", h).onclick = () => miUbicacion().then(q => { const x = ciudadCercana(q); if (!x) return; $("#cDep", h).value = x.dep; provs(); $("#cProv", h).value = x.prov; toast(`Estás en ${x.dis}, ${x.prov}`); }).catch(() => toast("Activa el GPS y da permiso de ubicación", true));
+  $("#cOk", h).onclick = () => { CIUDAD.set({ dep: $("#cDep", h).value, prov: $("#cProv", h).value }); cerrarHoja(); alListo ? alListo() : location.reload(); };
+}
+let NEGS_CIUDAD = null;
+async function negociosCiudad() {
+  if (NEGS_CIUDAD) return NEGS_CIUDAD; const c = CIUDAD.get();
+  NEGS_CIUDAD = (await DB.list("negocios", ["estado", "==", "activo"], ["prov", "==", provKey(c.dep, c.prov)])).filter(n => n.nombre);
+  return NEGS_CIUDAD;
+}
+// Productos destacados (⭐) de los negocios de la ciudad. Se guardan 5 min para gastar pocas lecturas.
+async function destacadosCiudad(ns) {
+  const c = CIUDAD.get(), k = provKey(c.dep, c.prov), g = JSON.parse(sessionStorage.getItem("am_dest") || "null");
+  if (g && g.k === k && Date.now() - g.t < 300000) return g.l;
+  const l = (await Promise.all(ns.slice(0, 30).map(n => DB.list(`negocios/${n.id}/productos`, ["destacado", "==", true]).then(ps => ps.filter(p => p.activo !== false && !p.agotado).slice(0, 4)
+    .map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio, foto: p.foto || "", neg: n.id, negNombre: n.nombre, rubro: n.rubro || "comida" }))).catch(() => [])))).flat();
+  try { sessionStorage.setItem("am_dest", JSON.stringify({ k, t: Date.now(), l })); } catch (e) {}
+  return l;
+}
+
+/* =========== INICIO y RUBROS =========== */
 let FILTRO = { tipo: "", q: "" };
+const enlaceBanner = b => b.enlace === "panel" ? (AP.panel || "#") : String(b.enlace || "").startsWith("rubro:") ? `index.html?r=${encodeURIComponent(b.enlace.slice(6))}` : String(b.enlace || "").startsWith("negocio:") ? `negocio.html?n=${encodeURIComponent(b.enlace.slice(8))}` : (b.enlace || "#");
 async function paginaInicio() {
   const box = $("#negocios"); if (!box) return;
-  const ns = (await DB.list("negocios", ["estado", "==", "activo"])).filter(n => n.nombre);
+  const W = CONF.web, rid = params.get("r"), c = CIUDAD.get();
+  $("#hTit").textContent = W.titulo; $("#hSub").textContent = W.subtitulo; $("#buscar").placeholder = W.buscador;
+  if (W.anuncio) { $("#anuncio").hidden = false; $("#anuncio").textContent = W.anuncio; }
+  const [ns, banners] = await Promise.all([negociosCiudad(), W.mostrarBanners && !rid ? DB.list("banners").catch(() => []) : []]);
+  const R = rid ? rubroDe(rid) : null;
+  // Rubros con imagen
+  $("#rubros").innerHTML = rid ? `<div class="rb-h"><a href="index.html" class="btn btn-light btn-sm">← Inicio</a>${R.imagen ? `<img src="${esc(imgUrl(R.imagen))}" alt="">` : ""}<h1>${esc(R.nombre)}</h1></div>${R.aviso ? `<p class="aviso">${esc(R.aviso)}</p>` : ""}`
+    : RUBROS.map(r => `<a class="rb" href="index.html?r=${encodeURIComponent(r.id)}" style="--rb:${esc(r.color || "#FFF1E6")}">${r.imagen ? `<img src="${esc(imgUrl(r.imagen))}" alt="" loading="lazy">` : ""}<span>${esc(r.nombre)}</span></a>`).join("");
+  // Banners de la ciudad
+  const bs = banners.filter(b => b.activo !== false && (!b.prov || b.prov === provKey(c.dep, c.prov))).sort((a, b) => (a.orden ?? 9) - (b.orden ?? 9));
+  $("#banners").innerHTML = bs.map(b => `<a class="bn" href="${esc(enlaceBanner(b))}" style="--bn:${esc(b.color || "#E63946")}"><div><b>${esc(b.titulo || "")}</b><p>${esc(b.texto || "")}</p>${b.boton ? `<span>${esc(b.boton)} →</span>` : ""}</div>${b.imagen ? `<img src="${esc(imgUrl(b.imagen))}" alt="" loading="lazy" onerror="this.remove()">` : ""}</a>`).join("");
+  $("#banners").hidden = !bs.length;
+  const base = ns.filter(n => !rid || (n.rubro || "comida") === rid);
+  let dest = []; if (W.mostrarDestacados) { $("#destTit").textContent = W.tituloDestacados; dest = await destacadosCiudad(ns); }
   const pintar = () => {
     const d = DIR.get(), q = norm(FILTRO.q);
-    const l = ns.filter(n => (!FILTRO.tipo || n.tipo === FILTRO.tipo) && (!q || norm(n.nombre + " " + n.tipo + " " + (n.descripcion || "")).includes(q)))
+    const l = base.filter(n => (!FILTRO.tipo || n.tipo === FILTRO.tipo) && (!q || norm([n.nombre, n.tipo, n.descripcion, rubroDe(n.rubro).nombre].join(" ")).includes(q)))
       .map(n => ({ ...n, ab: estaAbierto(n), km: d ? distanciaKm(n.ubic, d) : null })).sort((a, b) => (b.ab - a.ab) || ((a.km ?? 99) - (b.km ?? 99)));
-    const tipos = [...new Set(ns.map(n => n.tipo).filter(Boolean))];
-    $("#tipos").innerHTML = `<button class="chip ${!FILTRO.tipo ? "on" : ""}" data-tipo="">Todos</button>` + tipos.map(t => `<button class="chip ${FILTRO.tipo === t ? "on" : ""}" data-tipo="${esc(t)}">${esc(t)}</button>`).join("");
-    box.innerHTML = l.map(n => { const c = costoDelivery(n.km); return `<a class="neg ${n.ab ? "" : "cerr"}" href="negocio.html?n=${encodeURIComponent(n.id)}">
-      <div class="neg-p">${n.portada ? `<img src="${esc(n.portada)}" alt="" loading="lazy" onerror="this.remove()">` : ""}${n.ab ? "" : `<span class="tag-c">Cerrado · abre ${esc(n.abre || "")}</span>`}</div>
-      <div class="neg-b">${n.logo ? `<img class="neg-l" src="${esc(n.logo)}" alt="" loading="lazy">` : `<span class="neg-l ph">${esc((n.nombre || "?")[0])}</span>`}<div><h3>${esc(n.nombre)}</h3>
-      <p>${esc(n.tipo || "")} · ⏱ ${esc(n.tiempo || "30-40 min")}${c == null ? "" : c < 0 ? " · <b class='neg-f'>Fuera de tu zona</b>" : ` · 🛵 ${S(c)}`}</p></div></div></a>`; }).join("")
-      || `<div class="vacio">🔎<h2>No encontramos negocios</h2><p class="muted">Prueba con otra búsqueda.</p></div>`;
+    const tipos = [...new Set(base.map(n => n.tipo).filter(Boolean))];
+    $("#tipos").innerHTML = rid && tipos.length > 1 ? `<button class="chip ${!FILTRO.tipo ? "on" : ""}" data-tipo="">Todos</button>` + tipos.map(t => `<button class="chip ${FILTRO.tipo === t ? "on" : ""}" data-tipo="${esc(t)}">${esc(t)}</button>`).join("") : "";
+    $("#tipos").hidden = !$("#tipos").innerHTML;
+    const ids = new Set(l.map(n => n.id)), ds = dest.filter(p => ids.has(p.neg) && (!q || norm(p.nombre + " " + p.negNombre).includes(q)));
+    $("#destBox").hidden = !ds.length;
+    $("#dest").innerHTML = ds.map(p => `<a class="dp" href="negocio.html?n=${encodeURIComponent(p.neg)}&p=${encodeURIComponent(p.id)}">${fotoP(p)}<b>${esc(p.nombre)}</b><small>${esc(p.negNombre)}</small><span>${rubroDe(p.rubro).modo === "servicios" ? "Desde " : ""}${S(p.precio)}</span></a>`).join("");
+    $("#negTit").textContent = rid ? `${R.nombre} en ${c.prov}` : CONF.web.tituloNegocios;
+    box.innerHTML = l.map(n => { const cd = costoDelivery(n.km), rr = rubroDe(n.rubro); return `<a class="neg ${n.ab ? "" : "cerr"}" href="negocio.html?n=${encodeURIComponent(n.id)}">
+      <div class="neg-p">${n.portada ? `<img src="${esc(n.portada)}" alt="" loading="lazy" onerror="this.remove()">` : ""}${n.ab ? "" : `<span class="tag-c">Cerrado · abre ${esc(n.abre || "")}</span>`}${n.demo ? `<span class="tag-e">Ejemplo</span>` : ""}</div>
+      <div class="neg-b">${n.logo ? `<img class="neg-l" src="${esc(n.logo)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : `<span class="neg-l ph">${esc((n.nombre || "?")[0])}</span>`}<div><h3>${esc(n.nombre)}</h3>
+      <p>${esc(n.tipo || rr.nombre)}${rr.modo === "servicios" ? " · 🔧 Servicio" : ` · ⏱ ${esc(n.tiempo || "30-40 min")}`}${cd == null || rr.modo === "servicios" ? "" : cd < 0 ? " · <b class='neg-f'>Fuera de tu zona</b>" : ` · 🛵 ${S(cd)}`}${n.distrito ? ` · ${esc(n.distrito)}` : ""}</p></div></div></a>`; }).join("")
+      || `<div class="vacio">🔎<h2>Aún no hay negocios${rid ? " de " + esc(R.nombre.toLowerCase()) : ""} en ${esc(c.prov)}</h2><p class="muted">Prueba con otra categoría o cambia de ciudad.</p><button class="btn btn-light js-ciudad2">Cambiar de ciudad</button></div>`;
+    $(".js-ciudad2")?.addEventListener("click", () => elegirCiudad());
   };
   window.recalcular = pintar; pintar();
   $("#tipos").onclick = e => { const b = e.target.closest("[data-tipo]"); if (b) { FILTRO.tipo = b.dataset.tipo; pintar(); } };
-  $("#buscar")?.addEventListener("input", e => { FILTRO.q = e.target.value; pintar(); });
+  $("#buscar").oninput = e => { FILTRO.q = e.target.value; pintar(); };
 }
 
 /* =========== NEGOCIO: su carta =========== */
@@ -127,22 +181,25 @@ async function paginaNegocio() {
   document.title = NEG.nombre + " · Apamuy";
   [CATS, PRODS] = await Promise.all([DB.list(`negocios/${id}/categorias`), DB.list(`negocios/${id}/productos`)]);
   CATS.sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99)); PRODS = PRODS.filter(p => p.activo !== false).sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999));
+  const RB = rubroDe(NEG.rubro || "comida"), SERV = RB.modo === "servicios"; window.SERV = SERV;
+  if (RB.mayorEdad && !sessionStorage.getItem("am_18")) confirmar18();
   const ab = estaAbierto(NEG), d = DIR.get(), km = d ? distanciaKm(NEG.ubic, d) : null, c = costoDelivery(km);
   $("#negHead").innerHTML = `<div class="nh-p">${NEG.portada ? `<img src="${esc(NEG.portada)}" alt="" onerror="this.remove()">` : ""}</div>
     <div class="nh-b">${NEG.logo ? `<img class="neg-l" src="${esc(NEG.logo)}" alt="">` : `<span class="neg-l ph">${esc(NEG.nombre[0])}</span>`}<div><h1>${esc(NEG.nombre)}</h1>
     <p class="muted">${esc(NEG.tipo || "")} · ${esc(NEG.direccion || "")}</p><p><span class="estado ${ab ? "on" : "off"}">${ab ? `Abierto hasta las ${esc(NEG.cierra)}` : `Cerrado · abre a las ${esc(NEG.abre)}`}</span> · ⏱ ${esc(NEG.tiempo || "30-40 min")}${c == null ? "" : c < 0 ? " · Fuera de tu zona de delivery" : ` · 🛵 Delivery ${S(c)}`}</p>
-    ${NEG.descripcion ? `<p>${esc(NEG.descripcion)}</p>` : ""}</div></div>`;
+    ${NEG.descripcion ? `<p>${esc(NEG.descripcion)}</p>` : ""}${RB.aviso ? `<p class="aviso sm">${esc(RB.aviso)}</p>` : ""}${NEG.demo ? `<p class="aviso sm">🧪 Tienda de ejemplo para mostrar cómo funciona Apamuy.</p>` : ""}</div></div>`;
   const cats = CATS.filter(k => PRODS.some(p => p.cat === k.id)), dest = PRODS.filter(p => p.destacado && !p.agotado);
   $("#chips").innerHTML = (dest.length ? `<a href="#c-dest" class="chip on">⭐ Favoritos</a>` : "") + cats.map(k => `<a href="#c-${esc(k.id)}" class="chip">${esc(k.nombre)}</a>`).join("");
   const card = p => `<article class="card ${p.agotado ? "agot" : ""}"><button type="button" class="card-b" data-p="${esc(p.id)}" ${p.agotado || !ab ? "disabled" : ""} aria-label="${esc(p.nombre)}">
     <div class="card-img">${fotoP(p)}${p.agotado ? `<span class="tag-ag">Agotado</span>` : p.destacado ? `<span class="tag-st">⭐ Favorito</span>` : ""}</div>
-    <div class="card-t"><h3>${esc(p.nombre)}</h3><p>${esc(p.desc || "")}</p><div class="card-f"><b>${S(p.precio)}</b>${p.agotado || !ab ? "" : `<span class="add">+</span>`}</div></div></button></article>`;
+    <div class="card-t"><h3>${esc(p.nombre)}</h3><p>${esc(p.desc || "")}</p><div class="card-f"><b>${SERV ? "Desde " : ""}${S(p.precio)}</b>${p.agotado || !ab ? "" : SERV ? `<span class="add sol">Solicitar</span>` : `<span class="add">+</span>`}</div></div></button></article>`;
   box.innerHTML = (ab ? "" : `<div class="aviso">🔒 Ahora está cerrado. Puedes ver la carta y pedir desde las ${esc(NEG.abre)}.</div>`)
     + (dest.length ? `<section class="sec" id="c-dest"><h2>⭐ Favoritos</h2><div class="grid">${dest.map(card).join("")}</div></section>` : "")
     + cats.map(k => `<section class="sec" id="c-${esc(k.id)}"><h2>${esc(k.nombre)}</h2><div class="grid">${PRODS.filter(p => p.cat === k.id).map(card).join("")}</div></section>`).join("")
     + (PRODS.filter(p => !cats.some(k => k.id === p.cat)).length ? `<section class="sec"><h2>Más</h2><div class="grid">${PRODS.filter(p => !cats.some(k => k.id === p.cat)).map(card).join("")}</div></section>` : "");
-  box.onclick = e => { const b = e.target.closest("[data-p]"); if (b) abrirProducto(b.dataset.p); };
+  box.onclick = e => { const b = e.target.closest("[data-p]"); if (b) SERV ? solicitarServicio(b.dataset.p) : abrirProducto(b.dataset.p); };
   window.recalcular = () => paginaNegocio(); pintarBadge();
+  const pp = params.get("p"); if (pp && ab && !window._pAbierto) { window._pAbierto = 1; SERV ? solicitarServicio(pp) : abrirProducto(pp); }
 }
 function abrirProducto(id) {
   const p = PRODS.find(x => x.id === id); if (!p || p.agotado) return;
@@ -180,6 +237,45 @@ function sugerirBebida(esBeb) {
   h.addEventListener("click", e => { const b = e.target.closest("[data-b]"); if (b) abrirProducto(b.dataset.b); });
 }
 
+/* ---------- Licorería: solo mayores de 18 ---------- */
+function confirmar18() {
+  const h = hoja(`<div class="vacio">🔞<h2>¿Eres mayor de 18 años?</h2><p class="muted">Esta tienda vende bebidas alcohólicas. La venta a menores de edad está prohibida.</p>
+    <button class="btn btn-red" id="si18">Sí, soy mayor de 18</button><a class="btn btn-light" href="index.html">No, volver</a></div>`);
+  h.onclick = e => { if (e.target === h) location.href = "index.html"; };
+  $("#si18", h).onclick = () => { sessionStorage.setItem("am_18", "1"); cerrarHoja(); };
+}
+
+/* ---------- Talleres: solicitar un servicio ---------- */
+function solicitarServicio(id) {
+  const p = PRODS.find(x => x.id === id); if (!p) return;
+  asegurarCliente(() => {
+    const d = DIR.get();
+    const h = hoja(`<button class="x" data-cerrar aria-label="Cerrar">×</button><form class="ck" id="svF" novalidate><h2>Solicitar: ${esc(p.nombre)}</h2><p class="muted">en <b>${esc(NEG.nombre)}</b> · desde ${S(p.precio)}. El precio final lo confirma el taller.</p>
+      <label>¿Qué necesitas? *<textarea id="svDet" rows="3" maxlength="400" placeholder="Ej. mi moto no enciende, llanta pinchada en la avenida…"></textarea></label>
+      <div class="seg"><button type="button" data-l="taller" class="on">🔧 Lo llevo al taller</button><button type="button" data-l="domicilio">🏠 Que vengan a mí</button></div>
+      <div id="svDir" hidden><div class="dir-b"><div><small>Dirección</small><b class="js-dir"></b></div><button type="button" class="btn btn-light btn-sm" id="svCambiar">Cambiar</button></div></div>
+      <label>¿Cuándo? <small>(opcional)</small><input id="svF2" type="datetime-local"></label>
+      <p class="err" id="svE" role="alert"></p><button class="btn btn-red btn-lg">Enviar solicitud</button></form>`);
+    let lugar = "taller"; pintarDir();
+    h.addEventListener("click", e => { const b = e.target.closest("[data-l]"); if (b) { lugar = b.dataset.l; $$("[data-l]", h).forEach(x => x.classList.toggle("on", x === b)); $("#svDir", h).hidden = lugar !== "domicilio"; } });
+    $("#svCambiar", h).onclick = () => elegirDireccion(() => solicitarServicio(id));
+    $("#svF", h).onsubmit = async e => { e.preventDefault(); const det = $("#svDet", h).value.trim(), dd = DIR.get();
+      if (!det) return $("#svE").textContent = "Cuéntanos qué necesitas."; if (lugar === "domicilio" && !dd) return $("#svE").textContent = "Elige tu dirección.";
+      const cod = codigo("AP"), b = $("button.btn-red", h); b.disabled = true; b.textContent = "Enviando…";
+      try {
+        await DB.set("pedidos", cod, { codigo: cod, negocioId: NEG.id, negocio: { nombre: NEG.nombre, logo: NEG.logo || "", telefono: NEG.telefono || "", whatsapp: NEG.whatsapp || "", direccion: NEG.direccion || "", ubic: NEG.ubic || null },
+          clienteUid: YO.uid, cliente: { nombre: PERFIL.nombre, celular: PERFIL.celular }, items: [{ id: p.id, n: p.nombre, cant: 1, precio: p.precio, opts: "", extras: "", nota: det.slice(0, 140) }],
+          subtotal: p.precio, envio: 0, km: 0, total: p.precio, entrega: "servicio", destino: lugar === "domicilio" ? { texto: dd.texto, referencia: dd.referencia || "", lat: dd.lat, lng: dd.lng } : null, nota: "",
+          servicio: { detalle: det, lugar, fecha: $("#svF2", h).value || "" }, pago: "A coordinar", estado: "nuevo", dia: HOY(), mes: HOY().slice(0, 7), creado: new Date().toISOString() }, false);
+        const tel = NEG.telefono || "", w = NEG.whatsapp || "";
+        hoja(`<div class="vacio">✅<h2>Solicitud enviada</h2><p class="muted">${esc(NEG.nombre)} la recibió. Llámalos para coordinar más rápido.</p>
+          ${tel ? `<a class="btn btn-red btn-lg" href="tel:${esc(tel)}">📞 Llamar al taller</a>` : ""}${w ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="${esc(wa(w, `Hola ${NEG.nombre} 👋 te envié una solicitud por Apamuy (${cod}): ${p.nombre}. ${det}`))}">Escribir por WhatsApp</a>` : ""}
+          <a class="btn btn-light" href="pedido.html?c=${encodeURIComponent(cod)}">Ver mi solicitud</a></div>`);
+      } catch (x) { console.error(x); b.disabled = false; b.textContent = "Enviar solicitud"; $("#svE").textContent = "No se pudo enviar. Revisa tu conexión."; }
+    };
+  });
+}
+
 /* ---------- Carrito ---------- */
 function abrirCarrito() {
   const c = CART.get();
@@ -208,7 +304,8 @@ async function checkout() {
     <div id="ckR" class="ck-local">🏪 Recoges en <b>${esc(neg.direccion || "")}</b>${neg.referencia ? " (" + esc(neg.referencia) + ")" : ""}.</div>
     <div class="quien">👤 <b>${esc(PERFIL.nombre)}</b> · 📱 ${esc(PERFIL.celular)} <button type="button" class="btn-link" id="ckYo">Cambiar</button></div>
     <label>Nota para el pedido<input id="ckNota" maxlength="140" placeholder="Ej. tocar el timbre, sin cubiertos"></label>
-    <div class="resumen" id="ckRes"></div><h3>Pago de la comida <small class="muted">· directo a ${esc(neg.nombre)}</small></h3><div id="pagoBox"></div>
+    ${rubroDe(neg.rubro).mayorEdad ? `<label class="chk18"><input type="checkbox" id="ck18"> <span>Confirmo que soy <b>mayor de 18 años</b> y mostraré mi DNI al recibir.</span></label>` : ""}
+    <div class="resumen" id="ckRes"></div><h3>Pago${rubroDe(neg.rubro).id === "comida" ? " de la comida" : " del pedido"} <small class="muted">· directo a ${esc(neg.nombre)}</small></h3><div id="pagoBox"></div>
     <p class="err" id="ckErr" role="alert"></p><button class="btn btn-red btn-lg" id="ckBtn">Hacer pedido</button></form>`, "ck-h");
   pintarDir();
   const pago = Pago($("#pagoBox", h), neg, { contraEntrega: neg.contraEntrega !== false, onChange: () => resumen() });
@@ -232,6 +329,7 @@ async function checkout() {
     const d = DIR.get(), env = envio(), sub = CART.subtotal();
     if (entrega === "delivery") { if (!d) return err.textContent = "Elige la dirección de entrega."; if (env < 0) return err.textContent = "Tu dirección está fuera de la zona de delivery de este negocio.";
       if (sub < (+neg.pedidoMinimo || 0)) return err.textContent = `El pedido mínimo para delivery es ${S(neg.pedidoMinimo)}.`; }
+    if ($("#ck18", h) && !$("#ck18", h).checked) return err.textContent = "Confirma que eres mayor de 18 años.";
     const pe = pago.validar(); if (pe) return err.textContent = pe;
     const pd = pago.datos(), cod = codigo("AP"), b = $("#ckBtn", h); b.disabled = true; b.textContent = "Enviando pedido…";
     try {
@@ -241,7 +339,7 @@ async function checkout() {
         subtotal: sub, envio: entrega === "delivery" ? env : 0, km: entrega === "delivery" ? r2(km()) : 0, total: r2(sub + (entrega === "delivery" ? env : 0)), entrega,
         destino: entrega === "delivery" ? { texto: d.texto, referencia: d.referencia || "", lat: d.lat, lng: d.lng } : null, nota: $("#ckNota", h).value.trim(),
         pago: pd.pago, operacion: pd.operacion, montoLeido: pd.montoLeido, coincide: pd.coincide, fechaOk: pd.fechaOk, pagaCon: pd.pagaCon, captura,
-        estado: pd.pago === "Efectivo" ? "nuevo" : "por-validar", dia: HOY(), mes: HOY().slice(0, 7), creado: new Date().toISOString() };
+        ...($("#ck18", h) ? { mayorEdad: true } : {}), estado: pd.pago === "Efectivo" ? "nuevo" : "por-validar", dia: HOY(), mes: HOY().slice(0, 7), creado: new Date().toISOString() };
       await DB.set("pedidos", cod, ped, false);
       CART.vaciar(); cerrarHoja(); location.href = `pedido.html?c=${encodeURIComponent(cod)}&nuevo=1`;
     } catch (x) { console.error(x); b.disabled = false; b.textContent = "Hacer pedido"; err.textContent = "No se pudo enviar el pedido. Revisa tu conexión e inténtalo otra vez."; }
@@ -249,7 +347,7 @@ async function checkout() {
 }
 
 /* =========== SEGUIMIENTO =========== */
-const PASOS = { delivery: [["nuevo", "Recibido", "📝"], ["cocina", "Preparando", "🔥"], ["camino", "En camino", "🛵"], ["entregado", "Entregado", "✅"]],
+const PASOS = { servicio: [["nuevo", "Solicitud enviada", "📝"], ["cocina", "Aceptado", "🔧"], ["entregado", "Terminado", "✅"]], delivery: [["nuevo", "Recibido", "📝"], ["cocina", "Preparando", "🔥"], ["camino", "En camino", "🛵"], ["entregado", "Entregado", "✅"]],
   recojo: [["nuevo", "Recibido", "📝"], ["cocina", "Preparando", "🔥"], ["listo", "Listo para recoger", "🛍️"], ["entregado", "Entregado", "✅"]] };
 const ORDEN = { "por-validar": 0, nuevo: 0, cocina: 1, listo: 2, camino: 2, entregado: 3 };
 async function paginaPedido() {
@@ -260,8 +358,8 @@ async function paginaPedido() {
   DB.escuchar("pedidos", c, async p => {
     if (!p) { box.innerHTML = `<div class="vacio">😕<h2>No encontramos el pedido ${esc(c)}</h2><a href="mis-pedidos.html">Ver mis pedidos</a></div>`; return; }
     const firma = p.estado + (p.tiempo || "") + (p.repartidor ? p.repartidor.nombre : ""); if (ult && ult !== firma) { navigator.vibrate?.(250); toast("Tu pedido se actualizó"); } ult = firma;
-    const pasos = PASOS[p.entrega] || PASOS.delivery, idx = ORDEN[p.estado] ?? -1, malo = ["rechazado", "anulado"].includes(p.estado), r = p.repartidor || null;
-    const titulo = { "por-validar": "Estamos validando tu pago", nuevo: "¡El negocio recibió tu pedido!", cocina: "Tu pedido se está preparando 🔥", listo: p.entrega === "recojo" ? "¡Listo para recoger!" : "Listo, esperando al repartidor", camino: "Tu pedido va en camino 🛵", entregado: "¡Entregado! Buen provecho", rechazado: "No se pudo validar tu pago", anulado: "Tu pedido fue anulado" }[p.estado] || p.estado;
+    const pasos = PASOS[p.entrega] || PASOS.delivery, idx = p.entrega === "servicio" ? ({ nuevo: 0, cocina: 1, entregado: 2 }[p.estado] ?? -1) : (ORDEN[p.estado] ?? -1), malo = ["rechazado", "anulado"].includes(p.estado), r = p.repartidor || null;
+    const titulo = p.entrega === "servicio" ? ({ nuevo: "Enviamos tu solicitud al taller", cocina: "El taller aceptó tu solicitud 🔧", entregado: "Servicio terminado" }[p.estado] || (p.estado === "anulado" ? "El taller no pudo atenderte" : p.estado)) : { "por-validar": "Estamos validando tu pago", nuevo: "¡El negocio recibió tu pedido!", cocina: "Tu pedido se está preparando 🔥", listo: p.entrega === "recojo" ? "¡Listo para recoger!" : "Listo, esperando al repartidor", camino: "Tu pedido va en camino 🛵", entregado: "¡Entregado! Buen provecho", rechazado: "No se pudo validar tu pago", anulado: "Tu pedido fue anulado" }[p.estado] || p.estado;
     box.innerHTML = `${params.get("nuevo") ? `<div class="ok-top">✓ Pedido enviado a <b>${esc(p.negocio.nombre)}</b> · código <b>${esc(p.codigo)}</b></div>` : ""}
       <div class="trk"><small>${esc(p.negocio.nombre)} · ${fmtFH(p.creado)}</small><h1>${esc(titulo)}</h1>
         ${p.estado === "cocina" && p.tiempo ? `<p class="eta">⏱ Listo en aprox. <b>${esc(p.tiempo)} min</b></p>` : ""}
@@ -271,6 +369,7 @@ async function paginaPedido() {
       <div class="det"><h3>Tu pedido</h3>${(p.items || []).map(x => `<div class="ci"><div><b>${x.cant}× ${esc(x.n)}</b>${detItem(x).map(d => `<small>${esc(d)}</small>`).join("")}</div><span>${S(x.precio * x.cant)}</span></div>`).join("")}
         <div class="resumen"><div><span>Comida</span><b>${S(p.subtotal)}</b></div>${p.envio ? `<div><span>Delivery</span><b>${S(p.envio)}</b></div>` : ""}<div class="t"><span>Total</span><b>${S(p.total)}</b></div></div>
         <p class="muted">${p.entrega === "delivery" ? `🏠 ${esc(p.destino?.texto || "")}${p.destino?.referencia ? " · " + esc(p.destino.referencia) : ""}` : `🏪 Recojo en ${esc(p.negocio.direccion || "")}`}<br>💳 ${esc(p.pago)}${p.pagaCon ? ` · pagas con ${S(p.pagaCon)} (vuelto ${S(p.pagaCon - p.total)})` : ""}</p></div>
+      ${p.servicio ? `<div class="det"><h3>Tu solicitud</h3><p>${esc(p.servicio.detalle)}</p><p class="muted">${p.servicio.lugar === "domicilio" ? "🏠 A domicilio" : "🔧 En el taller"}${p.servicio.fecha ? " · " + fmtFH(p.servicio.fecha) : ""}</p>${p.negocio.telefono ? `<a class="btn btn-red" href="tel:${esc(p.negocio.telefono)}">📞 Llamar al taller</a>` : ""}</div>` : ""}
       <div class="acts">${p.negocio.whatsapp ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="${esc(wa(p.negocio.whatsapp, `Hola ${p.negocio.nombre} 👋 consulto por mi pedido ${p.codigo} de Apamuy.`))}">Escribir a ${esc(p.negocio.nombre)}</a>` : ""}<a class="btn btn-light" href="index.html">Volver al inicio</a></div>`;
     const el = $("#trkMapa"); if (el) { M = null; M = await mapaPuntos(el, [p.negocio.ubic && { ...p.negocio.ubic, color: "#E63946", txt: "🏪" }, p.destino && { ...p.destino, color: "#1A1430", txt: "🏠" }, r && r.ubic && { ...r.ubic, color: "#FFC21A", txt: "🛵" }]); }
   });
@@ -314,7 +413,9 @@ if (/iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone) $$(".js-i
 
 /* ---------- Arranque ---------- */
 (async () => {
-  await cargarConfig().catch(() => {});
+  await cargarConfig().catch(() => {}); await cargarRubros().catch(() => {});
+  $$(".js-pie").forEach(e => e.textContent = CONF.web.pie);
+  $$(".js-redes").forEach(e => e.innerHTML = [["facebook", "Facebook"], ["instagram", "Instagram"], ["tiktok", "TikTok"]].filter(([k]) => CONF.web[k]).map(([k, t]) => `<a href="${esc(CONF.web[k])}" target="_blank" rel="noopener">${t}</a>`).join(" · "));
   let iniciado = false;
   Sesion.alCambiar(async u => {
     if (iniciado) return location.reload();      // entró o salió: recargar con la nueva sesión

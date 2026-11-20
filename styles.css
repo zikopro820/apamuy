@@ -184,3 +184,27 @@ textarea:focus, input:focus, select:focus { border-color: var(--red); outline: n
 .pie a { color: #e8e3f3; }
 #toast { position: fixed; left: 50%; bottom: 140px; transform: translate(-50%, 20px); background: var(--dark); color: #fff; padding: 11px 18px; border-radius: 12px; font-weight: 700; opacity: 0; pointer-events: none; transition: .25s; z-index: 90; max-width: 90vw; text-align: center; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); } #toast.bad { background: #b3261e; }
+/* ===== Apamuy 1.5: ciudad, rubros, banners, destacados ===== */
+.top-dir { display: flex; align-items: center; gap: 0; padding: 0; overflow: hidden; }
+.top-dir button { background: none; border: 0; color: #fff; font: 700 .86rem var(--f); cursor: pointer; padding: 8px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-c { flex: none; border-right: 1px solid rgba(255,255,255,.2) !important; color: var(--yellow) !important; } .top-a { min-width: 0; flex: 1; text-align: left; }
+.anuncio { background: var(--yellow); color: var(--dark); text-align: center; font-weight: 700; padding: 8px 14px; font-size: .9rem; }
+.hero { padding-bottom: 22px; } .hero h1 { font-size: clamp(1.8rem, 5vw, 2.8rem); }
+.rubros { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin: 18px 0 6px; }
+.rb { display: grid; justify-items: center; gap: 6px; text-decoration: none; background: var(--rb); border-radius: 20px; padding: 14px 8px 12px; transition: transform .15s; } .rb:hover { transform: translateY(-2px); }
+.rb img { width: 72px; height: 72px; object-fit: contain; } .rb span { font-weight: 700; font-size: .92rem; text-align: center; line-height: 1.2; }
+@media (max-width: 520px) { .rubros { grid-template-columns: repeat(3, 1fr); gap: 8px; } .rb { border-radius: 16px; padding: 10px 4px; } .rb img { width: 56px; height: 56px; } .rb span { font-size: .8rem; } }
+.rb-h { display: flex; align-items: center; gap: 12px; } .rb-h img { width: 56px; height: 56px; object-fit: contain; } .rb-h h1 { font-size: 1.8rem; margin: 0; }
+.banners { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(280px, 1fr); gap: 12px; overflow-x: auto; margin: 16px 0 4px; scroll-snap-type: x mandatory; scrollbar-width: none; } .banners::-webkit-scrollbar { display: none; }
+.bn { scroll-snap-align: start; display: flex; align-items: center; gap: 10px; text-decoration: none; background: var(--bn); color: #fff; border-radius: 20px; padding: 18px; min-height: 140px; overflow: hidden; }
+.bn > div { flex: 1; } .bn b { font: 700 1.3rem var(--fd); display: block; line-height: 1.15; } .bn p { margin: 6px 0 10px; opacity: .9; font-size: .9rem; } .bn span { display: inline-block; background: #fff; color: var(--dark); font-weight: 800; font-size: .85rem; padding: 7px 12px; border-radius: 10px; }
+.bn img { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid rgba(255,255,255,.6); flex: none; }
+.chips-l { position: static; padding: 12px 0 0; border: 0; background: none; }
+.dests { display: grid; grid-auto-flow: column; grid-auto-columns: 160px; gap: 12px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.dp { display: grid; gap: 2px; text-decoration: none; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: var(--sh); padding-bottom: 10px; }
+.dp img, .dp .ph { width: 100%; aspect-ratio: 4/3; object-fit: cover; font-size: 2.6rem; } .dp b, .dp small, .dp span { padding: 0 10px; } .dp b { font-size: .9rem; line-height: 1.25; margin-top: 6px; } .dp small { color: var(--muted); font-size: .76rem; } .dp span { font-weight: 800; color: var(--red); }
+.tag-e { position: absolute; top: 10px; right: 10px; background: rgba(26,20,48,.8); color: #fff; font-size: .7rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+.add.sol { width: auto; height: auto; border-radius: 10px; padding: 7px 12px; font-size: .85rem; }
+.chk18 { display: flex !important; gap: 10px; align-items: flex-start; background: #fff3cd; border-radius: 12px; padding: 12px; font-weight: 500 !important; } .chk18 input { width: 20px; height: 20px; flex: none; accent-color: var(--red); }
+.aviso.sm { font-size: .85rem; padding: 8px 12px; margin: 8px 0 0; }
+.pie .js-redes a { margin-right: 4px; }

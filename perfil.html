@@ -18,18 +18,18 @@
 <body>
 <header class="top">
   <a class="brand" href="index.html" aria-label="Apamuy, inicio"><img src="favicon.svg" alt="" width="38" height="38"><b>apamuy</b></a>
-  <button type="button" class="top-dir js-cambiarDir"><small>Entregar en</small><span class="js-dir">Elige tu dirección</span> ▾</button>
+  <div class="top-dir"><button type="button" class="js-ciudad top-c">Cusco ▾</button><button type="button" class="js-cambiarDir top-a"><span class="js-dir">Elige tu dirección</span> ▾</button></div>
   <nav class="top-n"><a href="mis-pedidos.html">Mis pedidos</a><button type="button" class="ins js-instalar" hidden>⬇ Instalar app</button>
     <a href="#" class="cart-b js-carrito" aria-label="Ver mi pedido">🛒<span class="js-cnt" hidden>0</span></a>
     <button type="button" class="btn btn-red btn-sm js-entrar" hidden>Entrar</button><a href="perfil.html" class="yo-b js-yo" hidden aria-label="Mi perfil"></a></nav>
 </header>
 <main class="wrap"><h1 class="h1">Mi perfil</h1><div id="perfilBox"></div></main>
-<footer class="pie"><div><b>apamuy</b><p>Te lo traemos. Pide a los negocios de tu ciudad.</p></div>
+<footer class="pie"><div><b>apamuy</b><p class="js-pie">Te lo traemos. Pide a los negocios de tu ciudad.</p><p class="js-redes"></p></div>
   <div><p><a href="perfil.html">Mi perfil</a> · <a href="mis-pedidos.html">Mis pedidos</a></p><p><a class="js-panel" href="#">¿Tienes un negocio? Vende en Apamuy</a></p></div>
   <p class="cp">© <span class="js-anio"></span> Apamuy</p></footer>
 <nav class="tabbar" aria-label="Navegación"><a href="index.html"><i>🏠</i>Inicio</a><a href="mis-pedidos.html"><i>🧾</i>Pedidos</a>
   <a href="#" class="js-carrito"><i>🛒<span class="js-cnt" hidden>0</span></i>Carrito</a><a href="perfil.html"><i>👤</i>Perfil</a></nav>
-<script src="firebase-config.js"></script><script src="demo.js"></script><script src="nucleo.js"></script><script src="pago.js"></script><script src="app.js"></script>
+<script src="firebase-config.js"></script><script src="ubigeo.js"></script><script src="semilla.js"></script><script src="demo.js"></script><script src="nucleo.js"></script><script src="pago.js"></script><script src="app.js"></script>
 <script>document.querySelectorAll(".js-panel").forEach(a => a.href = (window.APAMUY || {}).panel || "#");</script>
 </body>
 </html>
