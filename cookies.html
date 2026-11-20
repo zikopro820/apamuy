@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Política de cookies · Apamuy</title>
+<meta name="description" content="Qué cookies y almacenamiento local usa Apamuy.">
+<meta name="theme-color" content="#E63946">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Apamuy">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./" aria-label="Apamuy, inicio"><img src="favicon.svg" alt="" width="38" height="38"><b>apamuy</b></a>
+  <div class="top-dir"><button type="button" class="js-ciudad top-c">Cusco ▾</button><button type="button" class="js-cambiarDir top-a"><span class="js-dir">Elige tu dirección</span> ▾</button></div>
+  <nav class="top-n"><a href="enviar">Enviar paquete</a><a href="mis-pedidos">Mis pedidos</a><a class="js-reparto top-rep" href="https://reparto.apamuy.app">Sé repartidor</a><button type="button" class="ins js-instalar" hidden>⬇ Instalar app</button>
+    <a href="#" class="cart-b js-carrito" aria-label="Ver mi pedido">🛒<span class="js-cnt" hidden>0</span></a>
+    <button type="button" class="btn btn-red btn-sm js-entrar" hidden>Entrar</button><a href="perfil" class="yo-b js-yo" hidden aria-label="Mi perfil"></a></nav>
+</header>
+<main class="wrap legal"><header class="lg-h"><h1 class="h1">Política de cookies</h1><p class="muted">Qué guardamos en tu navegador · Última actualización: <span class="emp-fecha"></span></p></header>
+<p>Las cookies y el almacenamiento local son pequeños datos que una web guarda en tu navegador. En Apamuy <b>solo usamos los necesarios</b> para que la web funcione. <b>No usamos cookies de publicidad ni de seguimiento</b>, ni herramientas de analítica.</p>
+<h2>Lo que guardamos y para qué</h2>
+<div class="tbl-w"><table class="lg-t"><thead><tr><th>Qué</th><th>Para qué</th><th>Cuánto dura</th></tr></thead><tbody>
+<tr><td>Sesión de Google (Firebase Authentication)</td><td>Mantener tu sesión iniciada.</td><td>Hasta que cierres sesión</td></tr>
+<tr><td>Carrito</td><td>Recordar lo que vas a pedir.</td><td>Hasta que hagas o vacíes el pedido</td></tr>
+<tr><td>Dirección y ciudad elegidas</td><td>Mostrarte los negocios de tu ciudad y calcular el delivery.</td><td>Hasta que las cambies</td></tr>
+<tr><td>Borrador de envío</td><td>No perder lo que escribiste si sales de la página.</td><td>Hasta que envíes el paquete</td></tr>
+<tr><td>Preferencias (aviso de cookies, instalación de la app)</td><td>No volver a mostrarte avisos que ya viste.</td><td>Hasta que borres los datos del navegador</td></tr>
+<tr><td>Caché de la app (service worker)</td><td>Que la app abra rápido y funcione aunque la señal sea débil.</td><td>Se renueva en cada versión</td></tr></tbody></table></div>
+<h2>Servicios de terceros</h2>
+<p>Para mostrar la web cargamos recursos de otros servicios que pueden recibir tu dirección IP: <b>Google</b> (inicio de sesión, fuentes tipográficas y alojamiento), <b>OpenStreetMap</b> (mapas), <b>Wikimedia Commons</b> (fotos de ejemplo) y, al pagar con captura, una librería que lee el monto de tu captura <b>dentro de tu propio teléfono</b>. Cada uno tiene sus propias políticas.</p>
+<h2>¿Cómo borrarlas?</h2>
+<p>Puedes borrar las cookies y el almacenamiento desde la configuración de tu navegador (en Chrome: Configuración → Privacidad y seguridad → Borrar datos de navegación). Si lo haces, se cerrará tu sesión y se vaciará tu carrito.</p>
+<p>Si tienes dudas, escríbenos a <a class="emp-correo-a" href="#"></a>. Más información en nuestra <a href="privacidad">Política de privacidad</a>.</p></main>
+<footer class="pie"><div><b>apamuy</b><p class="js-pie">Te lo traemos. Pide a los negocios de tu ciudad.</p><p class="js-redes"></p></div>
+  <div><p><a href="perfil">Mi perfil</a> · <a href="mis-pedidos">Mis pedidos</a></p><p><a class="js-reparto" href="https://reparto.apamuy.app">🛵 Quiero ser repartidor</a></p><p><a class="js-panel" href="#">¿Tienes un negocio? Vende en Apamuy</a></p></div>
+  <p class="cp">© <span class="js-anio"></span> Apamuy</p></footer>
+<nav class="tabbar" aria-label="Navegación"><a href="./"><i>🏠</i>Inicio</a><a href="mis-pedidos"><i>🧾</i>Pedidos</a>
+  <a href="#" class="js-carrito"><i>🛒<span class="js-cnt" hidden>0</span></i>Carrito</a><a href="perfil"><i>👤</i>Perfil</a></nav>
+<script src="firebase-config.js"></script><script src="ubigeo.js"></script><script src="semilla.js"></script><script src="demo.js"></script><script src="nucleo.js"></script><script src="pago.js"></script><script src="envios.js"></script><script src="legal.js"></script><script src="app.js"></script>
+<script>document.querySelectorAll(".js-panel").forEach(a => a.href = (window.APAMUY || {}).panel || "#");</script>
+</body>
+</html>

@@ -446,7 +446,7 @@ if (/iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone) $$(".js-i
     iniciado = true; YO = u; PERFIL = u ? await DB.get("usuarios", u.uid).catch(() => null) : null;
     if (u && !PERFIL) PERFIL = { nombre: u.nombre, email: u.email, direcciones: [] };
     if (u && !DIR.get() && PERFIL.direcciones?.length) store.set("am_dir", PERFIL.direcciones[0]);
-    pintarTabbar(); encabezado(); paginaInicio(); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEnviar(); paginaEnvio(); paginaRastreo();
+    pintarTabbar(); encabezado(); paginaInicio(); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEnviar(); paginaEnvio(); paginaRastreo(); paginaLibro();
     $$(".js-reparto").forEach(a => a.href = AP.reparto || "https://reparto.apamuy.app");
     $$(".js-anio").forEach(e => e.textContent = new Date().getFullYear());
     if (u && store.get("am_seguir", 0)) { store.del("am_seguir"); if (CART.cuenta()) abrirCarrito(); }
