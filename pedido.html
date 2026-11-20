@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi pedido · Apamuy</title>
+<meta name="description" content="Apamuy: pide comida de los mejores negocios de tu ciudad y te lo traemos.">
+<meta name="theme-color" content="#E63946">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Apamuy">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html" aria-label="Apamuy, inicio"><img src="favicon.svg" alt="" width="38" height="38"><b>apamuy</b></a>
+  <button type="button" class="top-dir js-cambiarDir"><small>Entregar en</small><span class="js-dir">Elige tu dirección</span> ▾</button>
+  <nav class="top-n"><a href="mis-pedidos.html">Mis pedidos</a><button type="button" class="ins js-instalar" hidden>⬇ Instalar app</button>
+    <a href="#" class="cart-b js-carrito" aria-label="Ver mi pedido">🛒<span class="js-cnt" hidden>0</span></a>
+    <button type="button" class="btn btn-red btn-sm js-entrar" hidden>Entrar</button><a href="perfil.html" class="yo-b js-yo" hidden aria-label="Mi perfil"></a></nav>
+</header>
+<main class="wrap"><div id="pedidoBox"><p class="muted">Cargando tu pedido…</p></div></main>
+<footer class="pie"><div><b>apamuy</b><p>Te lo traemos. Pide a los negocios de tu ciudad.</p></div>
+  <div><p><a href="perfil.html">Mi perfil</a> · <a href="mis-pedidos.html">Mis pedidos</a></p><p><a class="js-panel" href="#">¿Tienes un negocio? Vende en Apamuy</a></p></div>
+  <p class="cp">© <span class="js-anio"></span> Apamuy</p></footer>
+<nav class="tabbar" aria-label="Navegación"><a href="index.html"><i>🏠</i>Inicio</a><a href="mis-pedidos.html"><i>🧾</i>Pedidos</a>
+  <a href="#" class="js-carrito"><i>🛒<span class="js-cnt" hidden>0</span></i>Carrito</a><a href="perfil.html"><i>👤</i>Perfil</a></nav>
+<script src="firebase-config.js"></script><script src="demo.js"></script><script src="nucleo.js"></script><script src="pago.js"></script><script src="app.js"></script>
+<script>document.querySelectorAll(".js-panel").forEach(a => a.href = (window.APAMUY || {}).panel || "#");</script>
+</body>
+</html>
