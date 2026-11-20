@@ -132,7 +132,7 @@ async function destacadosCiudad(ns) {
 
 /* =========== INICIO y RUBROS =========== */
 let FILTRO = { tipo: "", q: "" };
-const enlaceBanner = b => b.enlace === "panel" ? (AP.panel || "#") : String(b.enlace || "").startsWith("rubro:") ? `index.html?r=${encodeURIComponent(b.enlace.slice(6))}` : String(b.enlace || "").startsWith("negocio:") ? `negocio.html?n=${encodeURIComponent(b.enlace.slice(8))}` : (b.enlace || "#");
+const enlaceBanner = b => b.enlace === "panel" ? (AP.panel || "#") : String(b.enlace || "").startsWith("rubro:") ? `./?r=${encodeURIComponent(b.enlace.slice(6))}` : String(b.enlace || "").startsWith("negocio:") ? `negocio?n=${encodeURIComponent(b.enlace.slice(8))}` : (b.enlace || "#");
 async function paginaInicio() {
   const box = $("#negocios"); if (!box) return;
   const W = CONF.web, rid = params.get("r"), c = CIUDAD.get();
@@ -141,8 +141,8 @@ async function paginaInicio() {
   const [ns, banners] = await Promise.all([negociosCiudad(), W.mostrarBanners && !rid ? DB.list("banners").catch(() => []) : []]);
   const R = rid ? rubroDe(rid) : null;
   // Rubros con imagen
-  $("#rubros").innerHTML = rid ? `<div class="rb-h"><a href="index.html" class="btn btn-light btn-sm">← Inicio</a>${R.imagen ? `<img src="${esc(imgUrl(R.imagen))}" alt="">` : ""}<h1>${esc(R.nombre)}</h1></div>${R.aviso ? `<p class="aviso">${esc(R.aviso)}</p>` : ""}`
-    : RUBROS.map(r => `<a class="rb" href="index.html?r=${encodeURIComponent(r.id)}" style="--rb:${esc(r.color || "#FFF1E6")}">${r.imagen ? `<img src="${esc(imgUrl(r.imagen))}" alt="" loading="lazy">` : ""}<span>${esc(r.nombre)}</span></a>`).join("");
+  $("#rubros").innerHTML = rid ? `<div class="rb-h"><a href="./" class="btn btn-light btn-sm">← Inicio</a>${R.imagen ? `<img src="${esc(imgUrl(R.imagen))}" alt="">` : ""}<h1>${esc(R.nombre)}</h1></div>${R.aviso ? `<p class="aviso">${esc(R.aviso)}</p>` : ""}`
+    : RUBROS.map(r => `<a class="rb" href="./?r=${encodeURIComponent(r.id)}" style="--rb:${esc(r.color || "#FFF1E6")}">${r.imagen ? `<img src="${esc(imgUrl(r.imagen))}" alt="" loading="lazy">` : ""}<span>${esc(r.nombre)}</span></a>`).join("");
   // Banners de la ciudad
   const bs = banners.filter(b => b.activo !== false && (!b.prov || b.prov === provKey(c.dep, c.prov))).sort((a, b) => (a.orden ?? 9) - (b.orden ?? 9));
   $("#banners").innerHTML = bs.map(b => `<a class="bn" href="${esc(enlaceBanner(b))}" style="--bn:${esc(b.color || "#E63946")}"><div><b>${esc(b.titulo || "")}</b><p>${esc(b.texto || "")}</p>${b.boton ? `<span>${esc(b.boton)} →</span>` : ""}</div>${b.imagen ? `<img src="${esc(imgUrl(b.imagen))}" alt="" loading="lazy" onerror="this.remove()">` : ""}</a>`).join("");
@@ -158,9 +158,9 @@ async function paginaInicio() {
     $("#tipos").hidden = !$("#tipos").innerHTML;
     const ids = new Set(l.map(n => n.id)), ds = dest.filter(p => ids.has(p.neg) && (!q || norm(p.nombre + " " + p.negNombre).includes(q)));
     $("#destBox").hidden = !ds.length;
-    $("#dest").innerHTML = ds.map(p => `<a class="dp" href="negocio.html?n=${encodeURIComponent(p.neg)}&p=${encodeURIComponent(p.id)}">${fotoP(p)}<b>${esc(p.nombre)}</b><small>${esc(p.negNombre)}</small><span>${rubroDe(p.rubro).modo === "servicios" ? "Desde " : ""}${S(p.precio)}</span></a>`).join("");
+    $("#dest").innerHTML = ds.map(p => `<a class="dp" href="negocio?n=${encodeURIComponent(p.neg)}&p=${encodeURIComponent(p.id)}">${fotoP(p)}<b>${esc(p.nombre)}</b><small>${esc(p.negNombre)}</small><span>${rubroDe(p.rubro).modo === "servicios" ? "Desde " : ""}${S(p.precio)}</span></a>`).join("");
     $("#negTit").textContent = rid ? `${R.nombre} en ${c.prov}` : CONF.web.tituloNegocios;
-    box.innerHTML = l.map(n => { const cd = costoDelivery(n.km), rr = rubroDe(n.rubro); return `<a class="neg ${n.ab ? "" : "cerr"}" href="negocio.html?n=${encodeURIComponent(n.id)}">
+    box.innerHTML = l.map(n => { const cd = costoDelivery(n.km), rr = rubroDe(n.rubro); return `<a class="neg ${n.ab ? "" : "cerr"}" href="negocio?n=${encodeURIComponent(n.id)}">
       <div class="neg-p">${n.portada ? `<img src="${esc(n.portada)}" alt="" loading="lazy" onerror="this.remove()">` : ""}${n.ab ? "" : `<span class="tag-c">Cerrado · abre ${esc(n.abre || "")}</span>`}${n.demo ? `<span class="tag-e">Ejemplo</span>` : ""}</div>
       <div class="neg-b">${n.logo ? `<img class="neg-l" src="${esc(n.logo)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : `<span class="neg-l ph">${esc((n.nombre || "?")[0])}</span>`}<div><h3>${esc(n.nombre)}</h3>
       <p>${esc(n.tipo || rr.nombre)}${rr.modo === "servicios" ? " · 🔧 Servicio" : ` · ⏱ ${esc(n.tiempo || "30-40 min")}`}${cd == null || rr.modo === "servicios" ? "" : cd < 0 ? " · <b class='neg-f'>Fuera de tu zona</b>" : ` · 🛵 ${S(cd)}`}${n.distrito ? ` · ${esc(n.distrito)}` : ""}</p></div></div></a>`; }).join("")
@@ -177,7 +177,7 @@ let NEG = null, CATS = [], PRODS = [];
 async function paginaNegocio() {
   const box = $("#carta"); if (!box) return; const id = params.get("n");
   NEG = id ? await DB.get("negocios", id).catch(() => null) : null; window.NEG = NEG;
-  if (!NEG || NEG.estado !== "activo") { box.innerHTML = `<div class="vacio">😕<h2>Este negocio no está disponible</h2><a class="btn btn-red" href="index.html">Ver otros negocios</a></div>`; return; }
+  if (!NEG || NEG.estado !== "activo") { box.innerHTML = `<div class="vacio">😕<h2>Este negocio no está disponible</h2><a class="btn btn-red" href="./">Ver otros negocios</a></div>`; return; }
   document.title = NEG.nombre + " · Apamuy";
   [CATS, PRODS] = await Promise.all([DB.list(`negocios/${id}/categorias`), DB.list(`negocios/${id}/productos`)]);
   CATS.sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99)); PRODS = PRODS.filter(p => p.activo !== false).sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999));
@@ -240,8 +240,8 @@ function sugerirBebida(esBeb) {
 /* ---------- Licorería: solo mayores de 18 ---------- */
 function confirmar18() {
   const h = hoja(`<div class="vacio">🔞<h2>¿Eres mayor de 18 años?</h2><p class="muted">Esta tienda vende bebidas alcohólicas. La venta a menores de edad está prohibida.</p>
-    <button class="btn btn-red" id="si18">Sí, soy mayor de 18</button><a class="btn btn-light" href="index.html">No, volver</a></div>`);
-  h.onclick = e => { if (e.target === h) location.href = "index.html"; };
+    <button class="btn btn-red" id="si18">Sí, soy mayor de 18</button><a class="btn btn-light" href="./">No, volver</a></div>`);
+  h.onclick = e => { if (e.target === h) location.href = "./"; };
   $("#si18", h).onclick = () => { sessionStorage.setItem("am_18", "1"); cerrarHoja(); };
 }
 
@@ -270,7 +270,7 @@ function solicitarServicio(id) {
         const tel = NEG.telefono || "", w = NEG.whatsapp || "";
         hoja(`<div class="vacio">✅<h2>Solicitud enviada</h2><p class="muted">${esc(NEG.nombre)} la recibió. Llámalos para coordinar más rápido.</p>
           ${tel ? `<a class="btn btn-red btn-lg" href="tel:${esc(tel)}">📞 Llamar al taller</a>` : ""}${w ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="${esc(wa(w, `Hola ${NEG.nombre} 👋 te envié una solicitud por Apamuy (${cod}): ${p.nombre}. ${det}`))}">Escribir por WhatsApp</a>` : ""}
-          <a class="btn btn-light" href="pedido.html?c=${encodeURIComponent(cod)}">Ver mi solicitud</a></div>`);
+          <a class="btn btn-light" href="pedido?c=${encodeURIComponent(cod)}">Ver mi solicitud</a></div>`);
       } catch (x) { console.error(x); b.disabled = false; b.textContent = "Enviar solicitud"; $("#svE").textContent = "No se pudo enviar. Revisa tu conexión."; }
     };
   });
@@ -279,10 +279,10 @@ function solicitarServicio(id) {
 /* ---------- Carrito ---------- */
 function abrirCarrito() {
   const c = CART.get();
-  if (!c.items.length) return hoja(`<button class="x" data-cerrar aria-label="Cerrar">×</button><div class="vacio">🛒<h2>Tu pedido está vacío</h2><a class="btn btn-red" href="index.html">Ver negocios</a></div>`);
+  if (!c.items.length) return hoja(`<button class="x" data-cerrar aria-label="Cerrar">×</button><div class="vacio">🛒<h2>Tu pedido está vacío</h2><a class="btn btn-red" href="./">Ver negocios</a></div>`);
   const h = hoja(`<button class="x" data-cerrar aria-label="Cerrar">×</button><div class="cart"><h2>Tu pedido</h2><p class="muted">en <b>${esc(c.nombre)}</b></p><div id="cartL"></div>
     <div class="cart-f"><div class="tot"><span>Subtotal</span><b class="js-subt">${S(CART.subtotal())}</b></div><button class="btn btn-red btn-lg" id="irPago">Continuar</button>
-    ${window.NEG && NEG.id === c.negocio ? `<button class="btn btn-light" data-cerrar>Seguir agregando</button>` : `<a class="btn btn-light" href="negocio.html?n=${encodeURIComponent(c.negocio)}">Volver a ${esc(c.nombre)}</a>`}</div></div>`);
+    ${window.NEG && NEG.id === c.negocio ? `<button class="btn btn-light" data-cerrar>Seguir agregando</button>` : `<a class="btn btn-light" href="negocio?n=${encodeURIComponent(c.negocio)}">Volver a ${esc(c.nombre)}</a>`}</div></div>`);
   const pintar = () => { const l = CART.get().items; if (!l.length) { CART.vaciar(); return abrirCarrito(); }
     $("#cartL", h).innerHTML = l.map((x, i) => `<div class="ci"><div><b>${esc(x.n)}</b>${detItem(x).map(d => `<small>${esc(d)}</small>`).join("")}<span>${S(x.precio * x.cant)}</span></div>
       <div class="qty sm"><button type="button" data-i="${i}" data-d="-1" aria-label="Menos">${x.cant === 1 ? "🗑" : "−"}</button><b>${x.cant}</b><button type="button" data-i="${i}" data-d="1" aria-label="Más">+</button></div></div>`).join("");
@@ -341,7 +341,7 @@ async function checkout() {
         pago: pd.pago, operacion: pd.operacion, montoLeido: pd.montoLeido, coincide: pd.coincide, fechaOk: pd.fechaOk, pagaCon: pd.pagaCon, captura,
         ...($("#ck18", h) ? { mayorEdad: true } : {}), estado: pd.pago === "Efectivo" ? "nuevo" : "por-validar", dia: HOY(), mes: HOY().slice(0, 7), creado: new Date().toISOString() };
       await DB.set("pedidos", cod, ped, false);
-      CART.vaciar(); cerrarHoja(); location.href = `pedido.html?c=${encodeURIComponent(cod)}&nuevo=1`;
+      CART.vaciar(); cerrarHoja(); location.href = `pedido?c=${encodeURIComponent(cod)}&nuevo=1`;
     } catch (x) { console.error(x); b.disabled = false; b.textContent = "Hacer pedido"; err.textContent = "No se pudo enviar el pedido. Revisa tu conexión e inténtalo otra vez."; }
   };
 }
@@ -352,11 +352,11 @@ const PASOS = { servicio: [["nuevo", "Solicitud enviada", "📝"], ["cocina", "A
 const ORDEN = { "por-validar": 0, nuevo: 0, cocina: 1, listo: 2, camino: 2, entregado: 3 };
 async function paginaPedido() {
   const box = $("#pedidoBox"); if (!box) return; const c = params.get("c");
-  if (!c) { box.innerHTML = `<div class="vacio">🔎<h2>Sigue tu pedido</h2><a class="btn btn-red" href="mis-pedidos.html">Ver mis pedidos</a></div>`; return; }
+  if (!c) { box.innerHTML = `<div class="vacio">🔎<h2>Sigue tu pedido</h2><a class="btn btn-red" href="mis-pedidos">Ver mis pedidos</a></div>`; return; }
   if (!YO) { box.innerHTML = `<div class="vacio">🔒<h2>Entra para ver tu pedido</h2><button class="btn btn-red js-entrar2">Entrar con Google</button></div>`; $(".js-entrar2").onclick = () => pedirEntrar("Entra con la misma cuenta con la que pediste."); return; }
   let M = null, ult = "";
   DB.escuchar("pedidos", c, async p => {
-    if (!p) { box.innerHTML = `<div class="vacio">😕<h2>No encontramos el pedido ${esc(c)}</h2><a href="mis-pedidos.html">Ver mis pedidos</a></div>`; return; }
+    if (!p) { box.innerHTML = `<div class="vacio">😕<h2>No encontramos el pedido ${esc(c)}</h2><a href="mis-pedidos">Ver mis pedidos</a></div>`; return; }
     const firma = p.estado + (p.tiempo || "") + (p.repartidor ? p.repartidor.nombre : ""); if (ult && ult !== firma) { navigator.vibrate?.(250); toast("Tu pedido se actualizó"); } ult = firma;
     const pasos = PASOS[p.entrega] || PASOS.delivery, idx = p.entrega === "servicio" ? ({ nuevo: 0, cocina: 1, entregado: 2 }[p.estado] ?? -1) : (ORDEN[p.estado] ?? -1), malo = ["rechazado", "anulado"].includes(p.estado), r = p.repartidor || null;
     const titulo = p.entrega === "servicio" ? ({ nuevo: "Enviamos tu solicitud al taller", cocina: "El taller aceptó tu solicitud 🔧", entregado: "Servicio terminado" }[p.estado] || (p.estado === "anulado" ? "El taller no pudo atenderte" : p.estado)) : { "por-validar": "Estamos validando tu pago", nuevo: "¡El negocio recibió tu pedido!", cocina: "Tu pedido se está preparando 🔥", listo: p.entrega === "recojo" ? "¡Listo para recoger!" : r ? "¡Listo! Tu repartidor va a recogerlo" : "Listo, esperando al repartidor", camino: "Tu pedido va en camino 🛵", entregado: "¡Entregado! Buen provecho", rechazado: "No se pudo validar tu pago", anulado: "Tu pedido fue anulado" }[p.estado] || p.estado;
@@ -373,7 +373,7 @@ async function paginaPedido() {
         <div class="resumen"><div><span>Comida</span><b>${S(p.subtotal)}</b></div>${p.envio ? `<div><span>Delivery</span><b>${S(p.envio)}</b></div>` : ""}<div class="t"><span>Total</span><b>${S(p.total)}</b></div></div>
         <p class="muted">${p.entrega === "delivery" ? `🏠 ${esc(p.destino?.texto || "")}${p.destino?.referencia ? " · " + esc(p.destino.referencia) : ""}` : `🏪 Recojo en ${esc(p.negocio.direccion || "")}`}<br>💳 ${esc(p.pago)}${p.pagaCon ? ` · pagas con ${S(p.pagaCon)} (vuelto ${S(p.pagaCon - p.total)})` : ""}</p></div>
       ${p.servicio ? `<div class="det"><h3>Tu solicitud</h3><p>${esc(p.servicio.detalle)}</p><p class="muted">${p.servicio.lugar === "domicilio" ? "🏠 A domicilio" : "🔧 En el taller"}${p.servicio.fecha ? " · " + fmtFH(p.servicio.fecha) : ""}</p>${p.negocio.telefono ? `<a class="btn btn-red" href="tel:${esc(p.negocio.telefono)}">📞 Llamar al taller</a>` : ""}</div>` : ""}
-      <div class="acts">${p.negocio.whatsapp ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="${esc(wa(p.negocio.whatsapp, `Hola ${p.negocio.nombre} 👋 consulto por mi pedido ${p.codigo} de Apamuy.`))}">Escribir a ${esc(p.negocio.nombre)}</a>` : ""}<a class="btn btn-light" href="index.html">Volver al inicio</a></div>`;
+      <div class="acts">${p.negocio.whatsapp ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="${esc(wa(p.negocio.whatsapp, `Hola ${p.negocio.nombre} 👋 consulto por mi pedido ${p.codigo} de Apamuy.`))}">Escribir a ${esc(p.negocio.nombre)}</a>` : ""}<a class="btn btn-light" href="./">Volver al inicio</a></div>`;
     $("#trkShare")?.addEventListener("click", async () => { let tk = p.rastreo;
       if (!tk) { tk = tokenRastreo(); try { await DB.batch([{ op: "set", col: "rastreo", id: tk, merge: false, data: { uid: YO.uid, col: "pedidos", ref: p.codigo, tipo: "pedido", titulo: p.negocio.nombre, estado: p.estado, origen: p.negocio.ubic ? { ...p.negocio.ubic, texto: p.negocio.nombre } : null, destino: p.destino ? { lat: p.destino.lat, lng: p.destino.lng, texto: p.destino.texto } : null, repartidor: r ? { ...r, ubic: null } : null, ubic: r?.ubic || null, creado: new Date().toISOString() } }, { op: "set", col: "pedidos", id: p.codigo, data: { rastreo: tk } }]); } catch (x) { return toast("No se pudo crear el enlace: " + (x.code || x.message), true); } }
       compartirRuta(tk, `🛵 Mi pedido de ${p.negocio.nombre} va en camino con Apamuy.`); });
@@ -393,11 +393,11 @@ async function paginaMisPedidos() {
   let T = params.get("t") || "todos";
   const pinta = () => { const l = [...(T !== "envios" ? ps.map(p => ({ ...p, _t: "p" })) : []), ...(T !== "pedidos" ? es.map(e => ({ ...e, _t: "e" })) : [])].sort((a, b) => String(b.creado).localeCompare(a.creado)).slice(0, 60);
     box.innerHTML = `<div class="seg3">${[["todos", "Todo"], ["pedidos", "Pedidos"], ["envios", "Envíos"]].map(([k, t]) => `<button class="${T === k ? "on" : ""}" data-mt="${k}">${t}</button>`).join("")}</div>`
-      + (l.map(x => x._t === "p" ? `<a class="mp" href="pedido.html?c=${encodeURIComponent(x.codigo)}"><span class="mp-i">${icoW(x.entrega === "delivery" ? "bike" : "store")}</span><div><b>${esc(x.negocio.nombre)}</b><small>${fmtFH(x.creado)} · ${x.entrega === "delivery" ? "Delivery" : x.entrega === "servicio" ? "Servicio" : "Recojo"}</small>
+      + (l.map(x => x._t === "p" ? `<a class="mp" href="pedido?c=${encodeURIComponent(x.codigo)}"><span class="mp-i">${icoW(x.entrega === "delivery" ? "bike" : "store")}</span><div><b>${esc(x.negocio.nombre)}</b><small>${fmtFH(x.creado)} · ${x.entrega === "delivery" ? "Delivery" : x.entrega === "servicio" ? "Servicio" : "Recojo"}</small>
           <small>${esc((x.items || []).map(i => `${i.cant}× ${i.n}`).join(", "))}</small></div><div><span class="e e-${esc(x.estado)}">${esc(E[x.estado] || x.estado)}</span><b>${S(x.total)}</b></div></a>`
-        : `<a class="mp" href="envio.html?c=${encodeURIComponent(x.codigo)}"><span class="mp-i env">${icoW("box")}</span><div><b>Envío a ${esc(x.destino.dis || x.destino.texto)}</b><small>${fmtFH(x.creado)} · ${esc(TAM[x.tamano]?.[0] || "")}</small><small>${esc(x.contenido)}</small></div>
+        : `<a class="mp" href="envio?c=${encodeURIComponent(x.codigo)}"><span class="mp-i env">${icoW("box")}</span><div><b>Envío a ${esc(x.destino.dis || x.destino.texto)}</b><small>${fmtFH(x.creado)} · ${esc(TAM[x.tamano]?.[0] || "")}</small><small>${esc(x.contenido)}</small></div>
           <div><span class="e e-${esc(x.estado)}">${esc(E[x.estado] || x.estado)}</span><b>${S(x.precio ?? x.oferta)}</b></div></a>`).join("")
-      || `<div class="vacio">${icoW(T === "envios" ? "box" : "receipt", "xl")}<h2>Aún no tienes ${T === "envios" ? "envíos" : "pedidos"}</h2><div class="acts"><a class="btn btn-red" href="index.html">Pedir ahora</a><a class="btn btn-light" href="enviar.html">Enviar un paquete</a></div></div>`); };
+      || `<div class="vacio">${icoW(T === "envios" ? "box" : "receipt", "xl")}<h2>Aún no tienes ${T === "envios" ? "envíos" : "pedidos"}</h2><div class="acts"><a class="btn btn-red" href="./">Pedir ahora</a><a class="btn btn-light" href="enviar">Enviar un paquete</a></div></div>`); };
   pinta(); box.onclick = e => { const b = e.target.closest("[data-mt]"); if (b) { T = b.dataset.mt; pinta(); } };
 }
 
@@ -412,9 +412,9 @@ async function paginaPerfil() {
   const p = PERFIL || {}, ds = p.direcciones || [], nom = p.nombre || YO.nombre || "";
   const [nP, nE] = await Promise.all([DB.list("pedidos", ["clienteUid", "==", YO.uid]).then(l => l.length).catch(() => 0), DB.list("envios", ["clienteUid", "==", YO.uid]).then(l => l.length).catch(() => 0)]);
   box.innerHTML = `<div class="pf-head">${YO.foto ? `<img class="pf-av" src="${esc(YO.foto)}" alt="">` : `<span class="pf-av">${esc((nom || "?")[0].toUpperCase())}</span>`}<div><h1>${esc(nom)}</h1><p>${esc(YO.email)}</p><p>${icoW("phone")} ${esc(p.celular || "Agrega tu celular")}</p></div><button class="btn btn-light btn-sm" id="pfEd">${icoW("edit")} Editar</button></div>
-    <div class="pf-stats"><a href="mis-pedidos.html?t=pedidos"><b>${nP}</b><span>Pedidos</span></a><a href="mis-pedidos.html?t=envios"><b>${nE}</b><span>Envíos</span></a><a href="#pfDirs"><b>${ds.length}</b><span>Direcciones</span></a></div>
+    <div class="pf-stats"><a href="mis-pedidos?t=pedidos"><b>${nP}</b><span>Pedidos</span></a><a href="mis-pedidos?t=envios"><b>${nE}</b><span>Envíos</span></a><a href="#pfDirs"><b>${ds.length}</b><span>Direcciones</span></a></div>
     <section class="pf-sec" id="pfDirs"><h3>Mis direcciones</h3>${ds.map((d, i) => fila("pin", esc(d.etiqueta || "Dirección"), esc(d.texto) + (d.referencia ? " · " + esc(d.referencia) : ""), `data-ed="${i}"`)).join("")}${fila("plus", "Agregar dirección", "", 'id="pfDir"', "pf-add")}</section>
-    <section class="pf-sec"><h3>Mi actividad</h3>${fila("receipt", "Mis pedidos", "Sigue y repite tus pedidos", 'href="mis-pedidos.html?t=pedidos"')}${fila("box", "Enviar un paquete", "Tú pones el precio", 'href="enviar.html"')}</section>
+    <section class="pf-sec"><h3>Mi actividad</h3>${fila("receipt", "Mis pedidos", "Sigue y repite tus pedidos", 'href="mis-pedidos?t=pedidos"')}${fila("box", "Enviar un paquete", "Tú pones el precio", 'href="enviar"')}</section>
     ${extra}<button class="btn btn-light btn-lg pf-out" id="pfSalir">${icoW("logout")} Cerrar sesión</button>`;
   $("#pfEd").onclick = () => formPerfil(paginaPerfil, "Tus datos"); $("#pfDir").onclick = () => editarDireccion(null, paginaPerfil); $("#pfSalir").onclick = () => Sesion.salir();
   $("#pfInst")?.addEventListener("click", instalarApp);

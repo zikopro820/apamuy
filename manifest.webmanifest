@@ -2,7 +2,7 @@
   "name": "Apamuy · Te lo traemos",
   "short_name": "Apamuy",
   "description": "Pide comida de los negocios de tu ciudad y te lo traemos.",
-  "start_url": "./index.html?app=1",
+  "start_url": "./?app=1",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

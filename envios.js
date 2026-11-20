@@ -27,9 +27,9 @@ const TAM_I = { sobre: "doc", pequeno: "box", grande: "truck" };
 
 /* ---------- Barra inferior con íconos ---------- */
 function pintarTabbar() {
-  const pg = location.pathname.split("/").pop() || "index.html";
-  const act = { "index.html": "inicio", "negocio.html": "inicio", "mis-pedidos.html": "pedidos", "pedido.html": "pedidos", "envio.html": "pedidos", "enviar.html": "enviar", "perfil.html": "perfil" }[pg] || "";
-  $$(".tabbar").forEach(t => t.innerHTML = [["inicio", "index.html", "home", "Inicio"], ["pedidos", "mis-pedidos.html", "receipt", "Pedidos"], ["enviar", "enviar.html", "box", "Enviar"], ["carrito", "#", "bag", "Carrito"], ["perfil", "perfil.html", "user", "Perfil"]]
+  const pg = (location.pathname.split("/").pop() || "index").replace(/\.html$/, "");
+  const act = { index: "inicio", negocio: "inicio", "mis-pedidos": "pedidos", pedido: "pedidos", envio: "pedidos", enviar: "enviar", perfil: "perfil" }[pg] || "";
+  $$(".tabbar").forEach(t => t.innerHTML = [["inicio", "./", "home", "Inicio"], ["pedidos", "mis-pedidos", "receipt", "Pedidos"], ["enviar", "enviar", "box", "Enviar"], ["carrito", "#", "bag", "Carrito"], ["perfil", "perfil", "user", "Perfil"]]
     .map(([k, h, i, tx]) => `<a href="${h}" class="${k === "carrito" ? "js-carrito" : ""}${k === act ? " on" : ""}" ${k === act ? 'aria-current="page"' : ""}><i>${icoW(i)}${k === "carrito" ? '<span class="js-cnt" hidden>0</span>' : ""}</i>${tx}</a>`).join(""));
 }
 
@@ -44,7 +44,7 @@ function tarjetaRep(r, opts = {}) {
 }
 
 /* ---------- Compartir ruta: enlace secreto que se ve sin cuenta ---------- */
-const urlRastreo = t => location.href.replace(/[^/]*$/, "") + "rastreo.html?t=" + t;
+const urlRastreo = t => location.href.replace(/[^/]*$/, "") + "rastreo?t=" + t;
 function compartirRuta(token, txt) {
   const u = urlRastreo(token), msg = `${txt}\nSíguelo en vivo aquí 👉 ${u}`;
   if (navigator.share) navigator.share({ title: "Apamuy · Seguimiento", text: txt, url: u }).catch(() => {});
@@ -139,7 +139,7 @@ async function paginaEnviar() {
       await DB.batch([{ op: "set", col: "envios", id: cod, merge: false, data: env },
         { op: "set", col: `envios/${cod}/priv`, id: "datos", merge: false, data: { clienteUid: YO.uid, cliente: { nombre: PERFIL.nombre, celular: PERFIL.celular }, receptor: { nombre: rN, celular: rC } } },
         { op: "set", col: "rastreo", id: tk, merge: false, data: { uid: YO.uid, col: "envios", ref: cod, tipo: "envio", titulo: "Envío de paquete", estado: "buscando", origen: { lat: env.origen.lat, lng: env.origen.lng, texto: env.origen.dis }, destino: { lat: env.destino.lat, lng: env.destino.lng, texto: env.destino.texto }, para: rN.split(" ")[0], creado: ah } }]);
-      store.del("am_env"); location.href = "envio.html?c=" + encodeURIComponent(cod);
+      store.del("am_env"); location.href = "envio?c=" + encodeURIComponent(cod);
     } catch (x) { console.error(x); b.disabled = false; b.textContent = "Buscar repartidor"; err.textContent = "No se pudo crear el envío: " + (x.code || x.message); }
   }
 }
@@ -170,7 +170,7 @@ async function paginaEnvio() {
         <dt><i class="lg b">B</i> Entrega</dt><dd>${esc(e.destino.texto)}${e.destino.referencia ? ` · ${esc(e.destino.referencia)}` : ""}<small>${esc(e.destino.dis)}, ${esc(e.destino.provincia)}${e.interprov ? " · interprovincial" : ""}</small></dd>
         ${PRIV ? `<dt>Recibe</dt><dd>${esc(PRIV.receptor.nombre)} · ${esc(PRIV.receptor.celular)}</dd>` : ""}<dt>Contenido</dt><dd>${esc(e.contenido)} · ${esc(TAM[e.tamano]?.[0] || "")}</dd>
         <dt>Precio</dt><dd><b>${S(e.precio ?? e.oferta)}</b> · paga ${e.paga === "recibe" ? "quien recibe, al entregar" : "quien envía, al recoger"}<small>${e.km} km aprox.</small></dd></dl></section>
-      <div class="acts"><a class="btn btn-light" href="enviar.html">${icoW("plus")} Nuevo envío</a></div>`;
+      <div class="acts"><a class="btn btn-light" href="enviar">${icoW("plus")} Nuevo envío</a></div>`;
     if (html === firma) return; firma = html; box.innerHTML = html;
     const el = $("#evMapa"); if (el) M = await mapaPuntos(el, [{ ...e.origen, color: "#E63946", txt: "A" }, { ...e.destino, color: "#1A1430", txt: "B" }, e.repartidor?.ubic && { ...e.repartidor.ubic, color: "#FFC21A", txt: "🛵" }]);
     if (e.estado === "entregado" && e.repartidor) cajaCalificar($("#evCal"), "envios", e.codigo, e.repartidor);
@@ -191,7 +191,7 @@ async function paginaEnvio() {
     if (e.target.closest("#evShare")) compartirRuta(EN.rastreo, `📦 ${PRIV?.receptor?.nombre?.split(" ")[0] || "Hola"}, te envié un paquete por Apamuy${EN.repartidor ? ` con ${EN.repartidor.nombre.split(" ")[0]} (${EN.repartidor.placa || vehTxt(EN.repartidor.vehiculo)})` : ""}.`);
   };
   DB.escuchar("envios", c, e => {
-    if (!e) { box.innerHTML = `<div class="vacio">${icoW("box", "xl")}<h2>No encontramos el envío ${esc(c)}</h2><a href="mis-pedidos.html">Ver mis pedidos</a></div>`; return; }
+    if (!e) { box.innerHTML = `<div class="vacio">${icoW("box", "xl")}<h2>No encontramos el envío ${esc(c)}</h2><a href="mis-pedidos">Ver mis pedidos</a></div>`; return; }
     const antes = EN; EN = e;
     if (antes && antes.estado !== e.estado) { navigator.vibrate?.(250); toast(EST_E[e.estado]?.[0] || "Tu envío se actualizó"); }
     if (e.estado === "buscando" && !pararOf) pararOf = DB.escucharLista(`envios/${c}/ofertas`, [], l => { const n = l.length > OFS.length && OFS.length !== null; OFS = l.sort((a, b) => a.precio - b.precio); if (n && antes) { navigator.vibrate?.(200); toast("💬 Nueva contraoferta"); } pintar(); });
@@ -213,7 +213,7 @@ function paginaRastreo() {
     const html = `<div class="trk"><small>${esc(r.titulo || "Apamuy")}${r.para ? ` · para ${esc(r.para)}` : ""}</small><h1>${esc(TIT[r.estado] || r.estado)}</h1>${r.repartidor ? tarjetaRep(r.repartidor, { contacto: !["entregado", "cancelado", "anulado"].includes(r.estado) }) : ""}</div>
       ${!["entregado", "cancelado", "anulado"].includes(r.estado) ? `<div class="mapa trk-m" id="rtMapa"></div><p class="muted sm">${r.ubic ? `🛵 Ubicación en vivo · actualizada ${hace(r.ubic.t)}` : "Verás al repartidor en el mapa cuando salga."}</p>` : ""}
       ${r.destino?.texto ? `<section class="det"><h3>Entrega en</h3><p>${esc(r.destino.texto)}</p></section>` : ""}
-      <section class="det promo-mini">${icoW("box")}<div><b>¿Tú también quieres enviar algo?</b><small>Con Apamuy tú pones el precio.</small></div><a class="btn btn-red btn-sm" href="enviar.html">Enviar</a></section>`;
+      <section class="det promo-mini">${icoW("box")}<div><b>¿Tú también quieres enviar algo?</b><small>Con Apamuy tú pones el precio.</small></div><a class="btn btn-red btn-sm" href="enviar">Enviar</a></section>`;
     if (html !== firma) { firma = html; box.innerHTML = html; const el = $("#rtMapa"); M = el ? await mapaPuntos(el, pts) : null; } else if (M) M.pintar(pts);
   });
 }
