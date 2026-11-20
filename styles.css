@@ -340,3 +340,4 @@ textarea:focus, input:focus, select:focus { border-color: var(--red); outline: n
 .lr-n { text-align: right; font: 800 1.1rem ui-monospace, monospace; color: var(--red); } .lr-hoja h4 { margin: 12px 0 2px; font-size: .82rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); } .lr-hoja p { margin: 0; }
 .lr-hoja footer { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: .78rem; color: var(--muted); }
 @media print { .top, .tabbar, .pie, .ck-aviso, .no-print, .lr-h, #toast { display: none !important; } body { background: #fff; padding: 0; } .wrap { padding: 0; max-width: none; } .lr-hoja { border-width: 1px; } }
+.mapa-err { height: 100%; min-height: 120px; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; padding: 16px; color: #625C73; } .mapa-err p { margin: 0; }
