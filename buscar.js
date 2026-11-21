@@ -6,7 +6,7 @@
    cliente elige. Al elegir se vuelve un pedido normal.
    ========================================================= */
 const SOLT = {
-  repuesto: { min: 30, rubros: ["ferreteria", "talleres"], tit: "Buscar repuesto", ico: "🔍", sub: "Pregunta una vez a todas las ferreterías y talleres de tu provincia. Los que lo tienen te responden con su precio." },
+  repuesto: { min: 30, rubros: ["ferreteria", "talleres"], tit: "Buscar repuesto", ico: "🔍", sub: "Pregunta una vez a todas las tiendas de repuestos, ferreterías y talleres de tu provincia. Los que lo tienen te responden con su precio." },
   auxilio: { min: 15, rubros: ["talleres"], km: 30, tit: "Auxilio mecánico", ico: "🚨", sub: "Los talleres cercanos (hasta 30 km) te dicen cuánto cobran y en cuánto llegan. El taller va hasta donde estás." }
 };
 const PROBLEMAS = ["Llanta pinchada", "Batería descargada", "No arranca", "Se recalentó", "Choque", "Sin combustible", "Otro"];
@@ -20,10 +20,10 @@ const BUSQ = { get: () => store.get("am_busq", null), set: v => store.set("am_bu
 function bloqueBuscar(ns, rid) {
   const el = $("#buscaAcc"); if (!el) return;
   const hay = r => (ns || []).some(n => (n.rubro || "comida") === r), b = BUSQ.get(), activa = b && new Date(b.vence) > Date.now();
-  const verRep = (!rid || SOLT.repuesto.rubros.includes(rid)) && (hay("ferreteria") || hay("talleres")), verAux = (!rid || rid === "talleres") && hay("talleres");
+  const verRep = (!rid || recibeBusq(rid)) && (ns || []).some(n => recibeBusq(n.rubro || "comida")), verAux = (!rid || rid === "talleres") && hay("talleres");
   el.hidden = !verRep && !verAux && !activa;
   el.innerHTML = (activa ? `<a class="bq-act" href="buscar?s=${encodeURIComponent(b.id)}"><span class="radar-w sm"></span><div><b>${SOLT[b.tipo]?.ico || "🔍"} Tienes una búsqueda activa</b><small>${esc(b.texto || "")} · mira quién te respondió</small></div>${icoW("chev")}</a>` : "")
-    + (verRep ? `<a class="bq-b" href="buscar?t=repuesto"><span class="bq-i">🔍</span><div><b>¿Buscas un repuesto o material?</b><small>Pregunta a todas las ferreterías y talleres a la vez</small></div>${icoW("chev")}</a>` : "")
+    + (verRep ? `<a class="bq-b" href="buscar?t=repuesto"><span class="bq-i">🔍</span><div><b>¿Buscas un repuesto o material?</b><small>Pregunta a todas las tiendas a la vez</small></div>${icoW("chev")}</a>` : "")
     + (verAux ? `<a class="bq-b aux" href="buscar?t=auxilio"><span class="bq-i">🚨</span><div><b>Auxilio mecánico</b><small>¿Te quedaste varado? Un taller va hasta ti</small></div>${icoW("chev")}</a>` : "");
 }
 
@@ -77,7 +77,7 @@ async function crearBusqueda(tipo, x) {
     const c = tipo === "auxilio" ? ciudadCercana(x.ubic) : CIUDAD.get(), dis = x.ubic ? (ciudadCercana(x.ubic) || {}).dis || "" : "";
     if (!c) throw new Error("No pudimos saber tu ciudad");
     const cod = codigo("BQ"), ah = new Date(), aprox = x.ubic ? { lat: Math.round(x.ubic.lat * 100) / 100, lng: Math.round(x.ubic.lng * 100) / 100 } : null;   // ~1 km: la casa exacta solo la ve la tienda elegida
-    const sol = { codigo: cod, tipo, clienteUid: YO.uid, cliente: String(PERFIL.nombre || "").split(" ")[0], prov: provKey(c.dep, c.prov), rubros: T.rubros,
+    const sol = { codigo: cod, tipo, clienteUid: YO.uid, cliente: String(PERFIL.nombre || "").split(" ")[0], prov: provKey(c.dep, c.prov), rubros: tipo === "repuesto" ? rubrosBusq() : T.rubros,
       texto: (tipo === "auxilio" ? x.problema + (x.texto ? ": " + x.texto : "") : x.texto).slice(0, 300), problema: x.problema || "", foto: x.foto || "", vehiculo: x.veh.tipo ? x.veh : null,
       zona: dis, ubic: aprox, estado: "abierta", vence: new Date(ah.getTime() + T.min * 60e3).toISOString(), creado: ah.toISOString(), dia: HOY(), mes: HOY().slice(0, 7) };
     await DB.set("solicitudes", cod, sol, false);
@@ -98,7 +98,7 @@ function verBusqueda(box, sid) {
       .sort((a, b) => orden === "barato" ? a.precio - b.precio : aux ? (a.llegaMin ?? 99) - (b.llegaMin ?? 99) : (a.km ?? 999) - (b.km ?? 999));
     const html = `<div class="trk bq-trk"><small>${esc(s.codigo)}${s.vehiculo ? " · " + esc(vehSol(s.vehiculo)) : ""}</small><h1>${esc(s.texto)}</h1>
         ${s.foto ? `<img class="bq-img" src="${esc(s.foto)}" alt="">` : ""}
-        ${abierta ? `<div class="busca"><span class="radar-w"></span><div><small>${aux ? "Preguntando a talleres cerca" : "Preguntando a ferreterías y talleres"}</small><b>${RS.length ? RS.length + " respondieron" : "Esperando…"}</b></div><div class="bus-t">Quedan <b id="bqT">{{T}}</b></div></div>`
+        ${abierta ? `<div class="busca"><span class="radar-w"></span><div><small>${aux ? "Preguntando a talleres cerca" : "Preguntando a las tiendas"}</small><b>${RS.length ? RS.length + " respondieron" : "Esperando…"}</b></div><div class="bus-t">Quedan <b id="bqT">{{T}}</b></div></div>`
           : s.estado === "elegida" ? `<div class="alert ok">✅ Elegiste una tienda. <a href="pedido?c=${encodeURIComponent(s.pedido || "")}">Ver mi pedido →</a></div>`
           : s.estado === "cancelada" ? `<div class="alert">Cancelaste esta búsqueda.</div>` : `<div class="alert">⏱ Se terminó el tiempo de la búsqueda.${RS.length ? " Aún puedes elegir una respuesta." : ""}</div>`}</div>
       <section class="det"><div class="bq-h"><h3>${aux ? "Talleres que pueden ir" : "Tiendas que lo tienen"} ${RS.length ? `<span class="cnt-b">${RS.length}</span>` : ""}</h3>
