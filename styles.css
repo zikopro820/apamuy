@@ -346,3 +346,4 @@ textarea:focus, input:focus, select:focus { border-color: var(--red); outline: n
 @keyframes sk { to { background-position: -200% 0; } } @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
 .rb.sk { min-height: 128px; border-radius: 22px; } .sk-neg .neg-p { min-height: 120px; } .sk-l { width: 52px; height: 52px; border-radius: 50%; flex: none; } .sk-t { width: 60%; height: 16px; margin: 4px 0 8px; } .sk-s { width: 85%; height: 12px; }
 .sk-neg .neg-b > div { flex: 1; }
+.avc { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 16px; padding: 12px 14px; margin-top: 12px; box-shadow: var(--sh); } .avc > div { flex: 1; min-width: 0; display: grid; } .avc small { color: var(--muted); font-size: .82rem; } .avc > .iw { color: var(--red); } .avc .btn { flex: none; margin: 0; }

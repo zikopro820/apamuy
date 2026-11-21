@@ -53,6 +53,14 @@ function compartirRuta(token, txt) {
     .querySelector("#cpU").onclick = () => navigator.clipboard?.writeText(u).then(() => toast("Enlace copiado"));
 }
 
+/* ---------- «Avísame»: activar notificaciones del pedido o envío ---------- */
+function cajaAvisos(el) {
+  if (!el || !YO) return; const e = estadoAvisos();
+  if (["ok", "demo", "nosoporta"].includes(e)) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="avc">${icoW("clock")}<div><b>¿Te avisamos cuando salga y llegue?</b><small>${e === "ios" ? textoAvisos("ios") : e === "bloqueado" ? textoAvisos("bloqueado") : "Te llega un aviso al celular aunque cierres la página."}</small></div>${e === "pendiente" ? `<button class="btn btn-red btn-sm" id="avW">Avísame</button>` : ""}</div>`;
+  $("#avW", el)?.addEventListener("click", async () => { const r = await activarAvisos("web"); toast(textoAvisos(r), r !== "ok"); cajaAvisos(el); });
+}
+
 /* ---------- Calificar al repartidor (1 a 5 estrellas) ---------- */
 async function cajaCalificar(el, col, ref, rep) {
   if (!el || !rep) return;
@@ -165,7 +173,7 @@ async function paginaEnvio() {
           ${vencida ? `<button class="btn btn-red btn-lg" data-subir="0">Volver a buscar con ${S(e.oferta)}</button>` : ""}<button class="btn-link danger" id="evCan">Cancelar envío</button></section>` : ""}
       ${["asignado", "camino"].includes(e.estado) ? `<div class="mapa trk-m" id="evMapa"></div><p class="muted sm leyenda"><i class="lg a">A</i> recojo · <i class="lg b">B</i> entrega${e.repartidor?.ubic ? " · 🛵 repartidor en vivo" : ""}</p>
         <button class="btn btn-dark btn-lg" id="evShare">${icoW("share")} Compartir ruta con quien recibe</button>` : ""}
-      ${e.estado === "entregado" ? `<div id="evCal"></div>` : ""}
+      ${e.estado === "entregado" ? `<div id="evCal"></div>` : ""}${["buscando", "asignado", "camino"].includes(e.estado) ? `<div id="evAv"></div>` : ""}
       <section class="det"><h3>Detalle</h3><dl class="dlw"><dt><i class="lg a">A</i> Recojo</dt><dd>${esc(e.origen.texto)}${e.origen.referencia ? ` · ${esc(e.origen.referencia)}` : ""}<small>${esc(e.origen.dis)}, ${esc(e.origen.provincia)}</small></dd>
         <dt><i class="lg b">B</i> Entrega</dt><dd>${esc(e.destino.texto)}${e.destino.referencia ? ` · ${esc(e.destino.referencia)}` : ""}<small>${esc(e.destino.dis)}, ${esc(e.destino.provincia)}${e.interprov ? " · interprovincial" : ""}</small></dd>
         ${PRIV ? `<dt>Recibe</dt><dd>${esc(PRIV.receptor.nombre)} · ${esc(PRIV.receptor.celular)}</dd>` : ""}<dt>Contenido</dt><dd>${esc(e.contenido)} · ${esc(TAM[e.tamano]?.[0] || "")}</dd>
@@ -174,6 +182,7 @@ async function paginaEnvio() {
     if (html === firma) return; firma = html; box.innerHTML = html;
     const el = $("#evMapa"); if (el) M = await mapaPuntos(el, [{ ...e.origen, color: "#E63946", txt: "A" }, { ...e.destino, color: "#1A1430", txt: "B" }, e.repartidor?.ubic && { ...e.repartidor.ubic, color: "#FFC21A", txt: "🛵" }]);
     if (e.estado === "entregado" && e.repartidor) cajaCalificar($("#evCal"), "envios", e.codigo, e.repartidor);
+    cajaAvisos($("#evAv"));
   };
   const elegir = async id => {
     const o = OFS.find(x => x.id === id); if (!o) return;

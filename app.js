@@ -376,12 +376,13 @@ async function paginaPedido() {
         ${malo ? `<div class="bad">${p.motivo ? esc(p.motivo) + ". " : ""}Escríbele al negocio para ayudarte.</div>` : `<ol class="pasos">${pasos.map(([k, t, ic], i) => `<li class="${i < idx || p.estado === "entregado" ? "done" : i === idx ? "now" : ""}"><i>${ic}</i><span>${t}</span></li>`).join("")}</ol>`}</div>
       ${p.entrega === "delivery" && !malo && p.estado !== "entregado" ? `<div class="mapa trk-m" id="trkMapa"></div><p class="muted sm">🏪 negocio · 🏠 tu dirección${r && r.ubic ? " · 🛵 repartidor en vivo" : ""}</p>
         <button class="btn btn-dark btn-lg" id="trkShare">${icoW("share")} Compartir seguimiento</button>` : ""}
-      ${p.estado === "entregado" && r ? `<div id="trkCal"></div>` : ""}
+      ${p.estado === "entregado" && r ? `<div id="trkCal"></div>` : ""}${!["entregado", "anulado", "rechazado"].includes(p.estado) ? `<div id="trkAv"></div>` : ""}
       <div class="det"><h3>Tu pedido</h3>${(p.items || []).map(x => `<div class="ci"><div><b>${x.cant}× ${esc(x.n)}</b>${detItem(x).map(d => `<small>${esc(d)}</small>`).join("")}</div><span>${S(x.precio * x.cant)}</span></div>`).join("")}
         <div class="resumen"><div><span>Comida</span><b>${S(p.subtotal)}</b></div>${p.envio ? `<div><span>Delivery</span><b>${S(p.envio)}</b></div>` : ""}<div class="t"><span>Total</span><b>${S(p.total)}</b></div></div>
         <p class="muted">${p.entrega === "delivery" ? `🏠 ${esc(p.destino?.texto || "")}${p.destino?.referencia ? " · " + esc(p.destino.referencia) : ""}` : `🏪 Recojo en ${esc(p.negocio.direccion || "")}`}<br>💳 ${esc(p.pago)}${p.pagaCon ? ` · pagas con ${S(p.pagaCon)} (vuelto ${S(p.pagaCon - p.total)})` : ""}</p></div>
       ${p.servicio ? `<div class="det"><h3>Tu solicitud</h3><p>${esc(p.servicio.detalle)}</p><p class="muted">${p.servicio.lugar === "domicilio" ? "🏠 A domicilio" : "🔧 En el taller"}${p.servicio.fecha ? " · " + fmtFH(p.servicio.fecha) : ""}</p>${p.negocio.telefono ? `<a class="btn btn-red" href="tel:${esc(p.negocio.telefono)}">📞 Llamar al taller</a>` : ""}</div>` : ""}
       <div class="acts">${p.negocio.whatsapp ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="${esc(wa(p.negocio.whatsapp, `Hola ${p.negocio.nombre} 👋 consulto por mi pedido ${p.codigo} de Apamuy.`))}">Escribir a ${esc(p.negocio.nombre)}</a>` : ""}<a class="btn btn-light" href="./">Volver al inicio</a></div>`;
+    cajaAvisos($("#trkAv"));
     $("#trkShare")?.addEventListener("click", async () => { let tk = p.rastreo;
       if (!tk) { tk = tokenRastreo(); try { await DB.batch([{ op: "set", col: "rastreo", id: tk, merge: false, data: { uid: YO.uid, col: "pedidos", ref: p.codigo, tipo: "pedido", titulo: p.negocio.nombre, estado: p.estado, origen: p.negocio.ubic ? { ...p.negocio.ubic, texto: p.negocio.nombre } : null, destino: p.destino ? { lat: p.destino.lat, lng: p.destino.lng, texto: p.destino.texto } : null, repartidor: r ? { ...r, ubic: null } : null, ubic: r?.ubic || null, creado: new Date().toISOString() } }, { op: "set", col: "pedidos", id: p.codigo, data: { rastreo: tk } }]); } catch (x) { return toast("No se pudo crear el enlace: " + (x.code || x.message), true); } }
       compartirRuta(tk, `🛵 Mi pedido de ${p.negocio.nombre} va en camino con Apamuy.`); });
@@ -422,10 +423,12 @@ async function paginaPerfil() {
   box.innerHTML = `<div class="pf-head">${YO.foto ? `<img class="pf-av" src="${esc(YO.foto)}" alt="">` : `<span class="pf-av">${esc((nom || "?")[0].toUpperCase())}</span>`}<div><h1>${esc(nom)}</h1><p>${esc(YO.email)}</p><p>${icoW("phone")} ${esc(p.celular || "Agrega tu celular")}</p></div><button class="btn btn-light btn-sm" id="pfEd">${icoW("edit")} Editar</button></div>
     <div class="pf-stats"><a href="mis-pedidos?t=pedidos"><b>${nP}</b><span>Pedidos</span></a><a href="mis-pedidos?t=envios"><b>${nE}</b><span>Envíos</span></a><a href="#pfDirs"><b>${ds.length}</b><span>Direcciones</span></a></div>
     <section class="pf-sec" id="pfDirs"><h3>Mis direcciones</h3>${ds.map((d, i) => fila("pin", esc(d.etiqueta || "Dirección"), esc(d.texto) + (d.referencia ? " · " + esc(d.referencia) : ""), `data-ed="${i}"`)).join("")}${fila("plus", "Agregar dirección", "", 'id="pfDir"', "pf-add")}</section>
+    ${["pendiente", "bloqueado", "ios"].includes(estadoAvisos()) ? `<section class="pf-sec"><h3>Avisos</h3>${fila("clock", "Activar avisos al celular", "Te avisamos cuando tu pedido sale y llega", 'id="pfAv"')}</section>` : ""}
     <section class="pf-sec"><h3>Mi actividad</h3>${fila("receipt", "Mis pedidos", "Sigue y repite tus pedidos", 'href="mis-pedidos?t=pedidos"')}${fila("box", "Enviar un paquete", "Tú pones el precio", 'href="enviar"')}</section>
     ${extra}<button class="btn btn-light btn-lg pf-out" id="pfSalir">${icoW("logout")} Cerrar sesión</button>`;
   $("#pfEd").onclick = () => formPerfil(paginaPerfil, "Tus datos"); $("#pfDir").onclick = () => editarDireccion(null, paginaPerfil); $("#pfSalir").onclick = () => Sesion.salir();
   $("#pfInst")?.addEventListener("click", instalarApp);
+  $("#pfAv")?.addEventListener("click", async () => { const r = await activarAvisos("web"); toast(textoAvisos(r), r !== "ok"); paginaPerfil(); });
   box.onclick = e => { const b = e.target.closest("[data-ed]"); if (b) editarDireccion(+b.dataset.ed, paginaPerfil); };
 }
 
@@ -456,6 +459,7 @@ if (/iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone) $$(".js-i
     iniciado = true; YO = u; PERFIL = u ? await DB.get("usuarios", u.uid).catch(() => null) : null;
     if (u && !PERFIL) PERFIL = { nombre: u.nombre, email: u.email, direcciones: [] };
     const dirNueva = u && !DIR.get() && PERFIL.direcciones?.length; if (dirNueva) store.set("am_dir", PERFIL.direcciones[0]);
+    if (u && window.Notification?.permission === "granted") activarAvisos("web", true);
     encabezado(); if (dirNueva && portada) portada.then(() => window.recalcular && window.recalcular()); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEnviar(); paginaEnvio(); paginaRastreo(); paginaLibro();
     $$(".js-reparto").forEach(a => a.href = AP.reparto || "https://reparto.apamuy.app");
     $$(".js-anio").forEach(e => e.textContent = new Date().getFullYear());
