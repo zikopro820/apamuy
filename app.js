@@ -118,7 +118,7 @@ function elegirCiudad(alListo) {
 let NEGS_CIUDAD = null;
 async function negociosCiudad() {
   if (NEGS_CIUDAD) return NEGS_CIUDAD; const c = CIUDAD.get(), k = provKey(c.dep, c.prov);
-  NEGS_CIUDAD = (await rapido("negs_" + k, () => DB.list("negocios", ["estado", "==", "activo"], ["prov", "==", k]), l => { NEGS_CIUDAD = l.filter(n => n.nombre); repintarInicio(); })).filter(n => n.nombre);
+  NEGS_CIUDAD = (await rapido("negs_" + k, () => DB.list("negocios", ["estado", "==", "activo"], ["prov", "==", k]), l => { NEGS_CIUDAD = l.filter(n => n.nombre && !n.bloqueoCobro); repintarInicio(); })).filter(n => n.nombre && !n.bloqueoCobro);   // bloqueoCobro: no pagó su comisión → oculto
   return NEGS_CIUDAD;
 }
 // Productos destacados (⭐) de los negocios de la ciudad. Se guardan 5 min para gastar pocas lecturas.
@@ -203,7 +203,7 @@ let NEG = null, CATS = [], PRODS = [];
 async function paginaNegocio() {
   const box = $("#carta"); if (!box) return; const id = params.get("n");
   NEG = id ? await DB.get("negocios", id).catch(() => null) : null; window.NEG = NEG;
-  if (!NEG || NEG.estado !== "activo") { box.innerHTML = `<div class="vacio">😕<h2>Este negocio no está disponible</h2><a class="btn btn-red" href="./">Ver otros negocios</a></div>`; return; }
+  if (!NEG || NEG.estado !== "activo" || NEG.bloqueoCobro) { box.innerHTML = `<div class="vacio">😕<h2>Este negocio no está disponible</h2><a class="btn btn-red" href="./">Ver otros negocios</a></div>`; return; }
   document.title = NEG.nombre + " · Apamuy";
   [CATS, PRODS] = await Promise.all([DB.list(`negocios/${id}/categorias`), DB.list(`negocios/${id}/productos`)]);
   CATS.sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99)); PRODS = PRODS.filter(p => p.activo !== false).sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999));
@@ -322,7 +322,7 @@ function abrirCarrito() {
 /* ---------- Finalizar pedido ---------- */
 async function checkout() {
   const c = CART.get(), neg = (window.NEG && NEG.id === c.negocio) ? NEG : await DB.get("negocios", c.negocio);
-  if (!neg || neg.estado !== "activo") return toast("Este negocio no está disponible ahora", true);
+  if (!neg || neg.estado !== "activo" || neg.bloqueoCobro) return toast("Este negocio no está disponible ahora", true);
   if (!estaAbierto(neg)) return toast(`${neg.nombre} está cerrado. Abre a las ${neg.abre}.`, true);
   // Si su delivery no llega hasta la dirección del cliente, empieza en «Recojo»
   const kmIni = DIR.get() ? distanciaKm(neg.ubic, DIR.get()) : null;

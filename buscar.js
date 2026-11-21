@@ -134,7 +134,7 @@ function tarjetaResp(s, r) {
 /* ---------- Elegir: se vuelve un pedido normal ---------- */
 async function elegirRespuesta(s, r) {
   if (!s || !r) return; const neg = await DB.get("negocios", r.negocioId).catch(() => null);
-  if (!neg || neg.estado !== "activo") return toast("Esta tienda ya no está disponible", true);
+  if (!neg || neg.estado !== "activo" || neg.bloqueoCobro) return toast("Esta tienda ya no está disponible", true);
   if (s.tipo === "repuesto") {
     // Al carrito con el precio que dio la tienda → el pago y la entrega de siempre
     const c = CART.get(); if (c.items.length && c.solicitud !== s.codigo && !confirm("Tu carrito tiene otros productos. ¿Reemplazarlos por este repuesto?")) return;
