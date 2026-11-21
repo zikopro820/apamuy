@@ -148,6 +148,7 @@ async function paginaInicio() {
   const bs = banners.filter(b => b.activo !== false && (!b.prov || b.prov === provKey(c.dep, c.prov))).sort((a, b) => (a.orden ?? 9) - (b.orden ?? 9));
   $("#banners").innerHTML = bs.map(b => `<a class="bn" href="${esc(enlaceBanner(b))}" style="--bn:${esc(b.color || "#E63946")}"><div><b>${esc(b.titulo || "")}</b><p>${esc(b.texto || "")}</p>${b.boton ? `<span>${esc(b.boton)} →</span>` : ""}</div>${b.imagen ? `<img src="${esc(imgUrl(b.imagen))}" alt="" loading="lazy" onerror="this.remove()">` : ""}</a>`).join("");
   $("#banners").hidden = !bs.length;
+  window.bloqueBuscar && bloqueBuscar(ns, rid);
   const base = ns.filter(n => !rid || (n.rubro || "comida") === rid);
   let dest = []; if (W.mostrarDestacados) $("#destTit").textContent = W.tituloDestacados;   // los destacados llegan después: no frenan la lista
   const pintar = () => {
@@ -160,12 +161,25 @@ async function paginaInicio() {
     const ids = new Set(l.map(n => n.id)), ds = dest.filter(p => ids.has(p.neg) && (!q || norm(p.nombre + " " + p.negNombre).includes(q)));
     $("#destBox").hidden = !ds.length;
     $("#dest").innerHTML = ds.map(p => `<a class="dp" href="negocio?n=${encodeURIComponent(p.neg)}&p=${encodeURIComponent(p.id)}">${fotoP(p)}<b>${esc(p.nombre)}</b><small>${esc(p.negNombre)}</small><span>${rubroDe(p.rubro).modo === "servicios" ? "Desde " : ""}${S(p.precio)}</span></a>`).join("");
-    $("#negTit").textContent = rid ? `${R.nombre} en ${c.prov}` : CONF.web.tituloNegocios;
-    box.innerHTML = l.map(n => { const cd = costoDelivery(n.km), rr = rubroDe(n.rubro); return `<a class="neg ${n.ab ? "" : "cerr"}" href="negocio?n=${encodeURIComponent(n.id)}">
+    const nomR = rid ? R.nombre : "", vacio = `<div class="vacio">🔎<h2>Aún no hay negocios${rid ? " de " + esc(nomR.toLowerCase()) : ""} en ${esc(c.prov)}</h2><p class="muted">Prueba con otra categoría o cambia de ciudad.</p><button class="btn btn-light js-ciudad2">Cambiar de ciudad</button></div>`;
+    const tarjeta = (n, lejos) => { const rr = rubroDe(n.rubro), serv = rr.modo === "servicios", cd = d && !serv ? costoNeg(n, n.km) : null;
+      const info = serv ? " · 🔧 Servicio" : lejos ? ` · 📍 ${n.km.toFixed(0)} km · ${n.recojo !== false ? "<b class='neg-f'>Solo recojo</b>" : "<b class='neg-f'>No llega a tu zona</b>"}`
+        : n.delivery === false ? ` · ⏱ ${esc(n.tiempo || "30-40 min")} · 🏪 Solo recojo` : ` · ⏱ ${esc(d ? tiempoEst(n, n.km) : (n.tiempo || "30-40 min"))}${cd > 0 ? ` · 🛵 ${S(cd)}` : ""}`;
+      return `<a class="neg ${n.ab ? "" : "cerr"} ${lejos ? "lejos" : ""}" href="negocio?n=${encodeURIComponent(n.id)}">
       <div class="neg-p">${n.portada ? `<img src="${esc(n.portada)}" alt="" loading="lazy" onerror="this.remove()">` : ""}${n.ab ? "" : `<span class="tag-c">Cerrado · abre ${esc(n.abre || "")}</span>`}${n.demo ? `<span class="tag-e">Ejemplo</span>` : ""}</div>
       <div class="neg-b">${n.logo ? `<img class="neg-l" src="${esc(n.logo)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : `<span class="neg-l ph">${esc((n.nombre || "?")[0])}</span>`}<div><h3>${esc(n.nombre)}</h3>
-      <p>${esc(n.tipo || rr.nombre)}${rr.modo === "servicios" ? " · 🔧 Servicio" : ` · ⏱ ${esc(n.tiempo || "30-40 min")}`}${cd == null || rr.modo === "servicios" ? "" : cd < 0 ? " · <b class='neg-f'>Fuera de tu zona</b>" : ` · 🛵 ${S(cd)}`}${n.distrito ? ` · ${esc(n.distrito)}` : ""}</p></div></div></a>`; }).join("")
-      || `<div class="vacio">🔎<h2>Aún no hay negocios${rid ? " de " + esc(R.nombre.toLowerCase()) : ""} en ${esc(c.prov)}</h2><p class="muted">Prueba con otra categoría o cambia de ciudad.</p><button class="btn btn-light js-ciudad2">Cambiar de ciudad</button></div>`;
+      <p>${esc(n.tipo || rr.nombre)}${info}${n.distrito ? ` · ${esc(n.distrito)}` : ""}</p></div></div></a>`; };
+    if (!d || !l.length) {   // sin dirección todavía: una sola lista
+      $("#negTit").textContent = rid ? `${nomR} en ${c.prov}` : CONF.web.tituloNegocios;
+      box.innerHTML = l.map(n => tarjeta(n)).join("") || vacio;
+    } else {
+      // Cerca de ti: les llega el delivery (según el radio de cada negocio). Más lejos: solo para recoger.
+      const lejos = n => rubroDe(n.rubro).modo !== "servicios" && n.km != null && n.km > radioNeg(n);
+      const cerca = l.filter(n => !lejos(n)), lej = l.filter(lejos);
+      $("#negTit").textContent = rid ? `${nomR} cerca de ti` : "Cerca de ti";
+      box.innerHTML = (cerca.map(n => tarjeta(n)).join("") || `<div class="negs-sep vacio-s">🛵 <span>Aún no hay negocios${rid ? " de " + esc(nomR.toLowerCase()) : ""} con delivery hasta tu dirección.${lej.length ? " Mira abajo los que puedes recoger." : ""}</span></div>`)
+        + (lej.length ? `<div class="negs-sep"><h2 class="h2">Más lejos · solo para recoger</h2><p class="muted">Su delivery no llega hasta tu dirección. Puedes pedir y recogerlo en el local.</p></div>${lej.map(n => tarjeta(n, true)).join("")}` : "");
+    }
     $(".js-ciudad2")?.addEventListener("click", () => elegirCiudad());
   };
   window.recalcular = pintar; pintar();
@@ -191,10 +205,11 @@ async function paginaNegocio() {
   CATS.sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99)); PRODS = PRODS.filter(p => p.activo !== false).sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999));
   const RB = rubroDe(NEG.rubro || "comida"), SERV = RB.modo === "servicios"; window.SERV = SERV;
   if (RB.mayorEdad && !sessionStorage.getItem("am_18")) confirmar18();
-  const ab = estaAbierto(NEG), d = DIR.get(), km = d ? distanciaKm(NEG.ubic, d) : null, c = costoDelivery(km);
+  const ab = estaAbierto(NEG), d = DIR.get(), km = d ? distanciaKm(NEG.ubic, d) : null, c = NEG.delivery === false ? null : costoNeg(NEG, km);
   $("#negHead").innerHTML = `<div class="nh-p">${NEG.portada ? `<img src="${esc(NEG.portada)}" alt="" onerror="this.remove()">` : ""}</div>
     <div class="nh-b">${NEG.logo ? `<img class="neg-l" src="${esc(NEG.logo)}" alt="">` : `<span class="neg-l ph">${esc(NEG.nombre[0])}</span>`}<div><h1>${esc(NEG.nombre)}</h1>
-    <p class="muted">${esc(NEG.tipo || "")} · ${esc(NEG.direccion || "")}</p><p><span class="estado ${ab ? "on" : "off"}">${ab ? `Abierto hasta las ${esc(NEG.cierra)}` : `Cerrado · abre a las ${esc(NEG.abre)}`}</span> · ⏱ ${esc(NEG.tiempo || "30-40 min")}${c == null ? "" : c < 0 ? " · Fuera de tu zona de delivery" : ` · 🛵 Delivery ${S(c)}`}</p>
+    <p class="muted">${esc(NEG.tipo || "")} · ${esc(NEG.direccion || "")}</p><p><span class="estado ${ab ? "on" : "off"}">${ab ? `Abierto hasta las ${esc(NEG.cierra)}` : `Cerrado · abre a las ${esc(NEG.abre)}`}</span> · ⏱ ${esc(c > 0 ? tiempoEst(NEG, km) : (NEG.tiempo || "30-40 min"))}${NEG.delivery === false ? " · 🏪 Solo recojo" : c == null ? "" : c < 0 ? "" : ` · 🛵 Delivery ${S(c)}`}</p>
+    ${c != null && c < 0 && !SERV ? `<p class="aviso sm">📍 Estás a ${km.toFixed(0)} km. Su delivery llega hasta ${radioNeg(NEG)} km${NEG.recojo !== false ? ": puedes pedir y <b>recogerlo en el local</b>." : "."}</p>` : ""}
     ${NEG.descripcion ? `<p>${esc(NEG.descripcion)}</p>` : ""}${RB.aviso ? `<p class="aviso sm">${esc(RB.aviso)}</p>` : ""}${NEG.demo ? `<p class="aviso sm">🧪 Tienda de ejemplo para mostrar cómo funciona Apamuy.</p>` : ""}</div></div>`;
   const cats = CATS.filter(k => PRODS.some(p => p.cat === k.id)), dest = PRODS.filter(p => p.destacado && !p.agotado);
   $("#chips").innerHTML = (dest.length ? `<a href="#c-dest" class="chip on">⭐ Favoritos</a>` : "") + cats.map(k => `<a href="#c-${esc(k.id)}" class="chip">${esc(k.nombre)}</a>`).join("");
@@ -305,7 +320,9 @@ async function checkout() {
   const c = CART.get(), neg = (window.NEG && NEG.id === c.negocio) ? NEG : await DB.get("negocios", c.negocio);
   if (!neg || neg.estado !== "activo") return toast("Este negocio no está disponible ahora", true);
   if (!estaAbierto(neg)) return toast(`${neg.nombre} está cerrado. Abre a las ${neg.abre}.`, true);
-  let entrega = neg.delivery !== false ? "delivery" : "recojo";
+  // Si su delivery no llega hasta la dirección del cliente, empieza en «Recojo»
+  const kmIni = DIR.get() ? distanciaKm(neg.ubic, DIR.get()) : null;
+  let entrega = neg.delivery !== false && !(neg.recojo !== false && kmIni != null && kmIni > radioNeg(neg)) ? "delivery" : "recojo";
   const h = hoja(`<button class="x" data-cerrar aria-label="Cerrar">×</button><form class="ck" id="ckF" novalidate><h2>Finalizar pedido</h2><p class="muted">en <b>${esc(neg.nombre)}</b></p>
     <div class="seg">${neg.delivery !== false ? `<button type="button" data-e="delivery">🛵 Delivery</button>` : ""}${neg.recojo !== false ? `<button type="button" data-e="recojo">🏪 Recojo</button>` : ""}</div>
     <div id="ckD"><div class="dir-b"><div><small>Entregar en</small><b class="js-dir"></b></div><button type="button" class="btn btn-light btn-sm" id="ckDir">Cambiar</button></div></div>
@@ -317,11 +334,11 @@ async function checkout() {
     <p class="err" id="ckErr" role="alert"></p><button class="btn btn-red btn-lg" id="ckBtn">Hacer pedido</button></form>`, "ck-h");
   pintarDir();
   const pago = Pago($("#pagoBox", h), neg, { contraEntrega: neg.contraEntrega !== false, onChange: () => resumen() });
-  const km = () => entrega === "delivery" ? distanciaKm(neg.ubic, DIR.get()) : 0, envio = () => entrega === "delivery" ? costoDelivery(km()) : 0;
+  const km = () => entrega === "delivery" ? distanciaKm(neg.ubic, DIR.get()) : 0, envio = () => entrega === "delivery" ? costoNeg(neg, km()) : 0;
   const efectivo = () => pago.estado.met === "Efectivo";
   function resumen() {
     const e = envio(), sub = CART.subtotal(), tot = r2(sub + Math.max(0, e || 0));
-    $("#ckRes", h).innerHTML = `<div><span>Comida</span><b>${S(sub)}</b></div>${entrega === "delivery" ? `<div><span>Delivery ${km() != null ? `(${km().toFixed(1)} km)` : ""}</span><b>${e == null ? "Elige tu dirección" : e < 0 ? "Fuera de zona" : S(e)}</b></div>` : ""}
+    $("#ckRes", h).innerHTML = `<div><span>${(neg.rubro || "comida") === "comida" ? "Comida" : "Productos"}</span><b>${S(sub)}</b></div>${entrega === "delivery" ? `<div><span>Delivery ${km() != null ? `(${km().toFixed(1)} km)` : ""}</span><b>${e == null ? "Elige tu dirección" : e < 0 ? `No llega (máx. ${radioNeg(neg)} km)` : S(e)}</b></div>` : ""}
       <div class="t"><span>Total</span><b>${S(tot)}</b></div>${entrega === "delivery" && e > 0 && !efectivo() ? `<p class="nota">🛵 El delivery (${S(e)}) se paga en efectivo al repartidor al recibir.</p>` : ""}
       ${entrega === "delivery" && sub < (+neg.pedidoMinimo || 0) ? `<p class="err">El pedido mínimo para delivery es ${S(neg.pedidoMinimo)}.</p>` : ""}`;
     pago.setMonto(efectivo() ? tot : sub);
@@ -347,8 +364,10 @@ async function checkout() {
         subtotal: sub, envio: entrega === "delivery" ? env : 0, km: entrega === "delivery" ? r2(km()) : 0, total: r2(sub + (entrega === "delivery" ? env : 0)), entrega,
         destino: entrega === "delivery" ? { texto: d.texto, referencia: d.referencia || "", lat: d.lat, lng: d.lng } : null, nota: $("#ckNota", h).value.trim(),
         pago: pd.pago, operacion: pd.operacion, montoLeido: pd.montoLeido, coincide: pd.coincide, fechaOk: pd.fechaOk, pagaCon: pd.pagaCon, captura,
-        ...($("#ck18", h) ? { mayorEdad: true } : {}), estado: pd.pago === "Efectivo" ? "nuevo" : "por-validar", dia: HOY(), mes: HOY().slice(0, 7), creado: new Date().toISOString() };
-      await DB.set("pedidos", cod, ped, false);
+        ...($("#ck18", h) ? { mayorEdad: true } : {}), ...(CART.get().solicitud ? { solicitud: CART.get().solicitud } : {}), estado: pd.pago === "Efectivo" ? "nuevo" : "por-validar", dia: HOY(), mes: HOY().slice(0, 7), creado: new Date().toISOString() };
+      // Si viene de «Buscar repuesto», la búsqueda queda como elegida en la misma operación
+      await DB.batch([{ op: "set", col: "pedidos", id: cod, merge: false, data: ped }, ...(ped.solicitud ? [{ op: "set", col: "solicitudes", id: ped.solicitud, data: { estado: "elegida", elegida: neg.id, pedido: cod, actualizado: ped.creado } }] : [])]);
+      if (ped.solicitud && store.get("am_busq", null)?.id === ped.solicitud) store.set("am_busq", null);
       CART.vaciar(); cerrarHoja(); location.href = `pedido?c=${encodeURIComponent(cod)}&nuevo=1`;
     } catch (x) { console.error(x); b.disabled = false; b.textContent = "Hacer pedido"; err.textContent = "No se pudo enviar el pedido. Revisa tu conexión e inténtalo otra vez."; }
   };
@@ -380,7 +399,7 @@ async function paginaPedido() {
       <div class="det"><h3>Tu pedido</h3>${(p.items || []).map(x => `<div class="ci"><div><b>${x.cant}× ${esc(x.n)}</b>${detItem(x).map(d => `<small>${esc(d)}</small>`).join("")}</div><span>${S(x.precio * x.cant)}</span></div>`).join("")}
         <div class="resumen"><div><span>Comida</span><b>${S(p.subtotal)}</b></div>${p.envio ? `<div><span>Delivery</span><b>${S(p.envio)}</b></div>` : ""}<div class="t"><span>Total</span><b>${S(p.total)}</b></div></div>
         <p class="muted">${p.entrega === "delivery" ? `🏠 ${esc(p.destino?.texto || "")}${p.destino?.referencia ? " · " + esc(p.destino.referencia) : ""}` : `🏪 Recojo en ${esc(p.negocio.direccion || "")}`}<br>💳 ${esc(p.pago)}${p.pagaCon ? ` · pagas con ${S(p.pagaCon)} (vuelto ${S(p.pagaCon - p.total)})` : ""}</p></div>
-      ${p.servicio ? `<div class="det"><h3>Tu solicitud</h3><p>${esc(p.servicio.detalle)}</p><p class="muted">${p.servicio.lugar === "domicilio" ? "🏠 A domicilio" : "🔧 En el taller"}${p.servicio.fecha ? " · " + fmtFH(p.servicio.fecha) : ""}</p>${p.negocio.telefono ? `<a class="btn btn-red" href="tel:${esc(p.negocio.telefono)}">📞 Llamar al taller</a>` : ""}</div>` : ""}
+      ${p.servicio ? `<div class="det"><h3>Tu solicitud</h3><p>${esc(p.servicio.detalle)}</p><p class="muted">${p.servicio.auxilio ? `🚨 Auxilio mecánico${p.servicio.llegaMin ? ` · llega en ~${p.servicio.llegaMin} min` : ""}` : p.servicio.lugar === "domicilio" ? "🏠 A domicilio" : "🔧 En el taller"}${p.servicio.fecha ? " · " + fmtFH(p.servicio.fecha) : ""}</p>${p.negocio.telefono ? `<a class="btn btn-red" href="tel:${esc(p.negocio.telefono)}">📞 Llamar al taller</a>` : ""}</div>` : ""}
       <div class="acts">${p.negocio.whatsapp ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="${esc(wa(p.negocio.whatsapp, `Hola ${p.negocio.nombre} 👋 consulto por mi pedido ${p.codigo} de Apamuy.`))}">Escribir a ${esc(p.negocio.nombre)}</a>` : ""}<a class="btn btn-light" href="./">Volver al inicio</a></div>`;
     cajaAvisos($("#trkAv"));
     $("#trkShare")?.addEventListener("click", async () => { let tk = p.rastreo;
@@ -460,7 +479,7 @@ if (/iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone) $$(".js-i
     if (u && !PERFIL) PERFIL = { nombre: u.nombre, email: u.email, direcciones: [] };
     const dirNueva = u && !DIR.get() && PERFIL.direcciones?.length; if (dirNueva) store.set("am_dir", PERFIL.direcciones[0]);
     if (u && window.Notification?.permission === "granted") activarAvisos("web", true);
-    encabezado(); if (dirNueva && portada) portada.then(() => window.recalcular && window.recalcular()); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEnviar(); paginaEnvio(); paginaRastreo(); paginaLibro();
+    encabezado(); if (dirNueva && portada) portada.then(() => window.recalcular && window.recalcular()); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEnviar(); paginaEnvio(); paginaRastreo(); paginaLibro(); window.paginaBuscar && paginaBuscar();
     $$(".js-reparto").forEach(a => a.href = AP.reparto || "https://reparto.apamuy.app");
     $$(".js-anio").forEach(e => e.textContent = new Date().getFullYear());
     if (u && store.get("am_seguir", 0)) { store.del("am_seguir"); if (CART.cuenta()) abrirCarrito(); }

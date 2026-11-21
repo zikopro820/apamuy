@@ -83,6 +83,8 @@ async function paginaEnviar() {
   const box = $("#enviarBox"); if (!box) return;
   const ds = (PERFIL && PERFIL.direcciones) || [], bor = store.get("am_env", null) || {};
   const E = { origen: bor.origen || (DIR.get() || ds[0] ? { ...(DIR.get() || ds[0]) } : null), destino: bor.destino || null, tamano: bor.tamano || "pequeno", paga: bor.paga || "envia", precio: bor.precio || null, tocado: !!bor.tocado };
+  // Tarifa de la provincia desde donde sale el paquete (o la general)
+  const TE = () => { const c = E.origen ? ciudadCercana(E.origen) : null; return c ? tarifaProv(provKey(c.dep, c.prov)).envio : CONF.envio; };
   const v = k => esc(bor[k] || "");
   box.innerHTML = `<form id="eF" novalidate>
     <section class="env-c"><div class="env-h"><span class="env-n">A</span><div><b>Recoger en</b><small>Donde el repartidor recoge el paquete</small></div></div>
@@ -107,10 +109,10 @@ async function paginaEnviar() {
   const F = $("#eF"), err = $("#eErr");
   const guardarBor = () => store.set("am_env", { origen: E.origen, destino: E.destino, tamano: E.tamano, paga: E.paga, precio: E.precio, tocado: E.tocado, rN: $("#rN").value, rC: $("#rC").value, eCont: $("#eCont").value, decl: $("#eDecl").checked });
   const calc = () => {
-    const km = E.origen && E.destino ? distanciaKm(E.origen, E.destino) : null, sug = sugerirEnvio(km, E.tamano);
+    const km = E.origen && E.destino ? distanciaKm(E.origen, E.destino) : null, sug = sugerirEnvio(km, E.tamano, TE());
     const co = E.origen ? ciudadCercana(E.origen) : null, cd = E.destino ? ciudadCercana(E.destino) : null, inter = co && cd && (co.prov !== cd.prov || co.dep !== cd.dep);
     $("#eDist").innerHTML = km == null ? "Marca los dos puntos para calcular la distancia." : `${icoW("flag")} <b>${km.toFixed(1)} km</b> aprox.${inter ? ` · <span class="inter">Interprovincial: ${esc(co.prov)} → ${esc(cd.prov)}</span>` : cd ? ` · ${esc(co?.dis || "")} → ${esc(cd.dis)}` : ""}`;
-    if (!E.tocado || !E.precio) E.precio = sug; $("#ePr").value = E.precio; $("#eSug").textContent = km == null ? `Mínimo ${S(CONF.envio.minimo)}` : `Sugerido ${S(sug)} · mínimo ${S(CONF.envio.minimo)}`;
+    if (!E.tocado || !E.precio) E.precio = sug; $("#ePr").value = E.precio; $("#eSug").textContent = km == null ? `Mínimo ${S(TE().minimo)}` : `Sugerido ${S(sug)} · mínimo ${S(TE().minimo)}`;
     E.km = km; E.inter = !!inter; E.co = co; E.cd = cd; guardarBor();
   };
   let MO = null, MD = null;
@@ -119,7 +121,7 @@ async function paginaEnviar() {
   if (!E.origen) miUbicacion().then(q => { MO?.mover(q); }).catch(() => {});
   $("#gpsO").onclick = () => miUbicacion().then(q => { MO?.mover(q); toast("Ubicación encontrada"); }).catch(() => toast("Activa el GPS y da permiso de ubicación", true));
   box.addEventListener("click", e => { const b = e.target.closest("[data-od]"); if (!b) return; const d = ds[+b.dataset.od]; E.origen = { ...d }; $("#oTx").value = d.texto; $("#oRf").value = d.referencia || ""; MO?.mover(d); });
-  F.addEventListener("click", e => { const b = e.target.closest("[data-st]"); if (!b) return; E.tocado = true; E.precio = Math.max(CONF.envio.minimo, r2((+$("#ePr").value || 0) + +b.dataset.st)); $("#ePr").value = E.precio; guardarBor(); });
+  F.addEventListener("click", e => { const b = e.target.closest("[data-st]"); if (!b) return; E.tocado = true; E.precio = Math.max(TE().minimo, r2((+$("#ePr").value || 0) + +b.dataset.st)); $("#ePr").value = E.precio; guardarBor(); });
   $("#ePr").oninput = e => { E.tocado = true; E.precio = +e.target.value || 0; guardarBor(); };
   F.onchange = e => { if (e.target.name === "tam") { E.tamano = e.target.value; calc(); } if (e.target.name === "paga") E.paga = e.target.value; guardarBor(); };
   F.oninput = guardarBor; calc();
@@ -132,7 +134,7 @@ async function paginaEnviar() {
     if (!E.destino.texto) return err.textContent = "Escribe la dirección de entrega.";
     if (!rN || rC.length !== 9) return err.textContent = "Escribe el nombre y el celular (9 dígitos) de quien recibe.";
     if (!cont) return err.textContent = "Cuéntanos qué envías.";
-    if (!(pr >= CONF.envio.minimo)) return err.textContent = `La oferta mínima es ${S(CONF.envio.minimo)}.`;
+    if (!(pr >= TE().minimo)) return err.textContent = `La oferta mínima es ${S(TE().minimo)}.`;
     if (E.km > CONF.envio.maxKm) return err.textContent = `Por ahora llevamos hasta ${CONF.envio.maxKm} km.`;
     if (!$("#eDecl").checked) return err.textContent = "Marca la declaración de que no envías nada prohibido.";
     guardarBor(); asegurarCliente(() => crearEnvio({ rN, rC, cont, pr }));
@@ -143,7 +145,7 @@ async function paginaEnviar() {
       const cod = codigo("EN"), tk = tokenRastreo(), ah = new Date().toISOString(), co = E.co || ciudadCercana(E.origen) || CIUDAD.get(), cd = E.cd || ciudadCercana(E.destino) || {};
       const pt = (x, c) => ({ texto: x.texto, referencia: x.referencia || "", lat: x.lat, lng: x.lng, dis: c.dis || "", provincia: c.prov || "", departamento: c.dep || "" });
       const env = { codigo: cod, clienteUid: YO.uid, origen: pt(E.origen, co), destino: pt(E.destino, cd), prov: provKey(co.dep, co.prov), interprov: !!E.inter, km: r2(E.km || 0), tamano: E.tamano, contenido: cont.slice(0, 80), paga: E.paga,
-        oferta: pr, sugerido: sugerirEnvio(E.km, E.tamano), estado: "buscando", buscadoEn: ah, rastreo: tk, creado: ah, dia: HOY(), mes: HOY().slice(0, 7) };
+        oferta: pr, sugerido: sugerirEnvio(E.km, E.tamano, TE()), estado: "buscando", buscadoEn: ah, rastreo: tk, creado: ah, dia: HOY(), mes: HOY().slice(0, 7) };
       await DB.batch([{ op: "set", col: "envios", id: cod, merge: false, data: env },
         { op: "set", col: `envios/${cod}/priv`, id: "datos", merge: false, data: { clienteUid: YO.uid, cliente: { nombre: PERFIL.nombre, celular: PERFIL.celular }, receptor: { nombre: rN, celular: rC } } },
         { op: "set", col: "rastreo", id: tk, merge: false, data: { uid: YO.uid, col: "envios", ref: cod, tipo: "envio", titulo: "Envío de paquete", estado: "buscando", origen: { lat: env.origen.lat, lng: env.origen.lng, texto: env.origen.dis }, destino: { lat: env.destino.lat, lng: env.destino.lng, texto: env.destino.texto }, para: rN.split(" ")[0], creado: ah } }]);
@@ -163,7 +165,7 @@ async function paginaEnvio() {
     const resta = Math.max(0, BUSQUEDA_MIN * 60 - Math.round((Date.now() - new Date(e.buscadoEn)) / 1000)), vencida = e.estado === "buscando" && resta === 0;
     const pasos = [["asignado", "Repartidor asignado"], ["camino", "Paquete recogido"], ["entregado", "Entregado"]], idx = { asignado: 0, camino: 1, entregado: 2 }[e.estado] ?? -1;
     const html = `<div class="trk env-trk"><small>${esc(c)} · ${TAM[e.tamano]?.[0] || ""}</small><h1>${e.estado === "buscando" ? (vencida ? "Nadie aceptó todavía" : "Buscando repartidor…") : esc(tit)}</h1>
-        ${e.estado === "buscando" ? `<div class="busca"><span class="radar-w"></span><div><small>Tu oferta</small><b>${S(e.oferta)}</b></div><div class="bus-t">${vencida ? "Sube tu oferta para que más repartidores se animen." : `Quedan <b>${Math.floor(resta / 60)}:${String(resta % 60).padStart(2, "0")}</b>`}</div></div>`
+        ${e.estado === "buscando" ? `<div class="busca"><span class="radar-w"></span><div><small>Tu oferta</small><b>${S(e.oferta)}</b></div><div class="bus-t">${vencida ? "Sube tu oferta para que más repartidores se animen." : `Quedan <b id="evT">{{T}}</b>`}</div></div>`
           : e.estado === "cancelado" ? "" : `<ol class="pasos">${pasos.map(([k, t], i) => `<li class="${i < idx || e.estado === "entregado" ? "done" : i === idx ? "now" : ""}"><i>${i + 1}</i><span>${t}</span></li>`).join("")}</ol>`}
         ${e.repartidor && e.estado !== "cancelado" ? tarjetaRep(e.repartidor, { contacto: e.estado !== "entregado" }) : ""}</div>
       ${e.estado === "buscando" ? `<section class="det"><h3>Contraofertas ${OFS.length ? `<span class="cnt-b">${OFS.length}</span>` : ""}</h3>
@@ -179,7 +181,8 @@ async function paginaEnvio() {
         ${PRIV ? `<dt>Recibe</dt><dd>${esc(PRIV.receptor.nombre)} · ${esc(PRIV.receptor.celular)}</dd>` : ""}<dt>Contenido</dt><dd>${esc(e.contenido)} · ${esc(TAM[e.tamano]?.[0] || "")}</dd>
         <dt>Precio</dt><dd><b>${S(e.precio ?? e.oferta)}</b> · paga ${e.paga === "recibe" ? "quien recibe, al entregar" : "quien envía, al recoger"}<small>${e.km} km aprox.</small></dd></dl></section>
       <div class="acts"><a class="btn btn-light" href="enviar">${icoW("plus")} Nuevo envío</a></div>`;
-    if (html === firma) return; firma = html; box.innerHTML = html;
+    const reloj = `${Math.floor(resta / 60)}:${String(resta % 60).padStart(2, "0")}`, t = $("#evT"); if (t) t.textContent = reloj;   // solo el reloj, sin repintar los botones
+    if (html === firma) return; firma = html; box.innerHTML = html.replace("{{T}}", reloj);
     const el = $("#evMapa"); if (el) M = await mapaPuntos(el, [{ ...e.origen, color: "#E63946", txt: "A" }, { ...e.destino, color: "#1A1430", txt: "B" }, e.repartidor?.ubic && { ...e.repartidor.ubic, color: "#FFC21A", txt: "🛵" }]);
     if (e.estado === "entregado" && e.repartidor) cajaCalificar($("#evCal"), "envios", e.codigo, e.repartidor);
     cajaAvisos($("#evAv"));
