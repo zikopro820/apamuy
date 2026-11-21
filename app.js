@@ -149,7 +149,10 @@ async function paginaInicio() {
   $("#banners").innerHTML = bs.map(b => `<a class="bn" href="${esc(enlaceBanner(b))}" style="--bn:${esc(b.color || "#E63946")}"><div><b>${esc(b.titulo || "")}</b><p>${esc(b.texto || "")}</p>${b.boton ? `<span>${esc(b.boton)} →</span>` : ""}</div>${b.imagen ? `<img src="${esc(imgUrl(b.imagen))}" alt="" loading="lazy" onerror="this.remove()">` : ""}</a>`).join("");
   $("#banners").hidden = !bs.length;
   window.bloqueBuscar && bloqueBuscar(ns, rid);
-  const pr = $(".promos"); if (pr) pr.style.display = rid ? "none" : "";
+  const pr = $(".promos"); if (pr) { const W2 = CONF.web, env = $("#prEnv"), rep = $("#prRep");
+    if (env) { env.hidden = !W2.btnEnvio; $("#prEnvT").textContent = W2.envTit; $("#prEnvX").textContent = W2.envTxt; }
+    if (rep) { rep.hidden = !W2.btnRep; $("#prRepT").textContent = W2.repTit; $("#prRepX").textContent = W2.repTxt; }
+    pr.style.display = rid || (!W2.btnEnvio && !W2.btnRep) ? "none" : ""; pr.classList.toggle("uno", !W2.btnEnvio || !W2.btnRep); }
   const base = ns.filter(n => !rid || (n.rubro || "comida") === rid);
   let dest = []; if (W.mostrarDestacados) $("#destTit").textContent = W.tituloDestacados;   // los destacados llegan después: no frenan la lista
   const pintar = () => {

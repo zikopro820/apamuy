@@ -20,11 +20,11 @@ const BUSQ = { get: () => store.get("am_busq", null), set: v => store.set("am_bu
 function bloqueBuscar(ns, rid) {
   const el = $("#buscaAcc"); if (!el) return;
   const hay = r => (ns || []).some(n => (n.rubro || "comida") === r), b = BUSQ.get(), activa = b && new Date(b.vence) > Date.now();
-  const verRep = (!rid || recibeBusq(rid)) && (ns || []).some(n => recibeBusq(n.rubro || "comida")), verAux = (!rid || rid === "talleres") && hay("talleres");
+  const W = CONF.web, verRep = W.btnBusq !== false && (!rid || recibeBusq(rid)) && (ns || []).some(n => recibeBusq(n.rubro || "comida")), verAux = W.btnAux !== false && (!rid || rid === "talleres") && hay("talleres");
   el.hidden = !verRep && !verAux && !activa;
   el.innerHTML = (activa ? `<a class="bq-act" href="buscar?s=${encodeURIComponent(b.id)}"><span class="radar-w sm"></span><div><b>${SOLT[b.tipo]?.ico || "🔍"} Tienes una búsqueda activa</b><small>${esc(b.texto || "")} · mira quién te respondió</small></div>${icoW("chev")}</a>` : "")
-    + (verRep ? `<a class="bq-b" href="buscar?t=repuesto"><span class="bq-i">🔍</span><div><b>¿Buscas un repuesto o material?</b><small>Pregunta a todas las tiendas a la vez</small></div>${icoW("chev")}</a>` : "")
-    + (verAux ? `<a class="bq-b aux" href="buscar?t=auxilio"><span class="bq-i">🚨</span><div><b>Auxilio mecánico</b><small>¿Te quedaste varado? Un taller va hasta ti</small></div>${icoW("chev")}</a>` : "");
+    + (verRep ? `<a class="bq-b" href="buscar?t=repuesto"><span class="bq-i">🔍</span><div><b>${esc(W.bqTit)}</b><small>${esc(W.bqTxt)}</small></div>${icoW("chev")}</a>` : "")
+    + (verAux ? `<a class="bq-b aux" href="buscar?t=auxilio"><span class="bq-i">🚨</span><div><b>${esc(W.auxTit)}</b><small>${esc(W.auxTxt)}</small></div>${icoW("chev")}</a>` : "");
 }
 
 /* ---------- Página /buscar ---------- */

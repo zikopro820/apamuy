@@ -374,3 +374,4 @@ textarea:focus, input:focus, select:focus { border-color: var(--red); outline: n
 .rsp-h .neg-l { width: 44px; height: 44px; border-radius: 12px; } .rsp-h strong { font: 700 1.45rem var(--fd); color: #157a46; white-space: nowrap; }
 .rsp-n { margin: 0; font-size: .9rem; } .rsp-f { width: 100%; max-height: 220px; object-fit: cover; border-radius: 12px; } .ok-t { margin: 0; color: #157a46; font-weight: 800; }
 .rsp .tags { display: flex; flex-wrap: wrap; gap: 6px; } .rsp .st { font-size: .78rem; font-weight: 700; padding: 4px 9px; border-radius: 999px; background: #f3efe8; color: var(--dark); } .rsp .st.warn { background: #FFE3E5; color: #b4232f; } .rsp .st.mute { background: none; color: var(--muted); font-weight: 600; }
+.promo[hidden] { display: none !important; } .promos.uno { grid-template-columns: 1fr; }
