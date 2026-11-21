@@ -341,3 +341,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red); outline: n
 .lr-hoja footer { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: .78rem; color: var(--muted); }
 @media print { .top, .tabbar, .pie, .ck-aviso, .no-print, .lr-h, #toast { display: none !important; } body { background: #fff; padding: 0; } .wrap { padding: 0; max-width: none; } .lr-hoja { border-width: 1px; } }
 .mapa-err { height: 100%; min-height: 120px; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; padding: 16px; color: #625C73; } .mapa-err p { margin: 0; }
+/* Esqueletos de carga (se ven solo la primera vez, mientras llegan los datos) */
+.sk { background: linear-gradient(90deg, #f1e9df 25%, #f8f2ea 50%, #f1e9df 75%); background-size: 200% 100%; animation: sk 1.2s ease-in-out infinite; border-radius: 12px; display: block; }
+@keyframes sk { to { background-position: -200% 0; } } @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+.rb.sk { min-height: 128px; border-radius: 22px; } .sk-neg .neg-p { min-height: 120px; } .sk-l { width: 52px; height: 52px; border-radius: 50%; flex: none; } .sk-t { width: 60%; height: 16px; margin: 4px 0 8px; } .sk-s { width: 85%; height: 12px; }
+.sk-neg .neg-b > div { flex: 1; }

@@ -117,18 +117,18 @@ function elegirCiudad(alListo) {
 }
 let NEGS_CIUDAD = null;
 async function negociosCiudad() {
-  if (NEGS_CIUDAD) return NEGS_CIUDAD; const c = CIUDAD.get();
-  NEGS_CIUDAD = (await DB.list("negocios", ["estado", "==", "activo"], ["prov", "==", provKey(c.dep, c.prov)])).filter(n => n.nombre);
+  if (NEGS_CIUDAD) return NEGS_CIUDAD; const c = CIUDAD.get(), k = provKey(c.dep, c.prov);
+  NEGS_CIUDAD = (await rapido("negs_" + k, () => DB.list("negocios", ["estado", "==", "activo"], ["prov", "==", k]), l => { NEGS_CIUDAD = l.filter(n => n.nombre); repintarInicio(); })).filter(n => n.nombre);
   return NEGS_CIUDAD;
 }
 // Productos destacados (⭐) de los negocios de la ciudad. Se guardan 5 min para gastar pocas lecturas.
 async function destacadosCiudad(ns) {
-  const c = CIUDAD.get(), k = provKey(c.dep, c.prov), g = JSON.parse(sessionStorage.getItem("am_dest") || "null");
-  if (g && g.k === k && Date.now() - g.t < 300000) return g.l;
-  const l = (await Promise.all(ns.slice(0, 30).map(n => DB.list(`negocios/${n.id}/productos`, ["destacado", "==", true]).then(ps => ps.filter(p => p.activo !== false && !p.agotado).slice(0, 4)
-    .map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio, foto: p.foto || "", neg: n.id, negNombre: n.nombre, rubro: n.rubro || "comida" }))).catch(() => [])))).flat();
-  try { sessionStorage.setItem("am_dest", JSON.stringify({ k, t: Date.now(), l })); } catch (e) {}
-  return l;
+  const c = CIUDAD.get(), k = provKey(c.dep, c.prov), g = MEM.get("dest_" + k);
+  const traer = async () => { const l = (await Promise.all(ns.slice(0, 30).map(n => DB.list(`negocios/${n.id}/productos`, ["destacado", "==", true]).then(ps => ps.filter(p => p.activo !== false && !p.agotado).slice(0, 4)
+    .map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio, foto: p.foto || "", neg: n.id, negNombre: n.nombre, rubro: n.rubro || "comida" }))).catch(() => [])))).flat(); MEM.set("dest_" + k, l); return l; };
+  // Se actualizan como máximo cada 5 min (cuestan lecturas); mientras tanto se muestran los guardados
+  if (!DEMO && g !== undefined) { const t = (JSON.parse(localStorage.getItem("am_c_dest_" + k) || "{}").t) || 0; if (Date.now() - t > 300000) traer().then(l => { if (JSON.stringify(l) !== JSON.stringify(g)) repintarInicio(); }).catch(() => {}); return g; }
+  return traer();
 }
 
 /* =========== INICIO y RUBROS =========== */
@@ -139,7 +139,7 @@ async function paginaInicio() {
   const W = CONF.web, rid = params.get("r"), c = CIUDAD.get();
   $("#hTit").textContent = W.titulo; $("#hSub").textContent = W.subtitulo; $("#buscar").placeholder = W.buscador;
   if (W.anuncio) { $("#anuncio").hidden = false; $("#anuncio").textContent = W.anuncio; }
-  const [ns, banners] = await Promise.all([negociosCiudad(), W.mostrarBanners && !rid ? DB.list("banners").catch(() => []) : []]);
+  const [ns, banners] = await Promise.all([negociosCiudad(), W.mostrarBanners && !rid ? rapido("banners", () => DB.list("banners"), () => repintarInicio()).catch(() => []) : []]);
   const R = rid ? rubroDe(rid) : null;
   // Rubros con imagen
   $("#rubros").innerHTML = rid ? `<div class="rb-h"><a href="./" class="btn btn-light btn-sm">← Inicio</a>${R.imagen ? `<img src="${esc(imgUrl(R.imagen))}" alt="">` : ""}<h1>${esc(R.nombre)}</h1></div>${R.aviso ? `<p class="aviso">${esc(R.aviso)}</p>` : ""}`
@@ -149,7 +149,7 @@ async function paginaInicio() {
   $("#banners").innerHTML = bs.map(b => `<a class="bn" href="${esc(enlaceBanner(b))}" style="--bn:${esc(b.color || "#E63946")}"><div><b>${esc(b.titulo || "")}</b><p>${esc(b.texto || "")}</p>${b.boton ? `<span>${esc(b.boton)} →</span>` : ""}</div>${b.imagen ? `<img src="${esc(imgUrl(b.imagen))}" alt="" loading="lazy" onerror="this.remove()">` : ""}</a>`).join("");
   $("#banners").hidden = !bs.length;
   const base = ns.filter(n => !rid || (n.rubro || "comida") === rid);
-  let dest = []; if (W.mostrarDestacados) { $("#destTit").textContent = W.tituloDestacados; dest = await destacadosCiudad(ns); }
+  let dest = []; if (W.mostrarDestacados) $("#destTit").textContent = W.tituloDestacados;   // los destacados llegan después: no frenan la lista
   const pintar = () => {
     const d = DIR.get(), q = norm(FILTRO.q);
     const l = base.filter(n => (!FILTRO.tipo || n.tipo === FILTRO.tipo) && (!q || norm([n.nombre, n.tipo, n.descripcion, rubroDe(n.rubro).nombre].join(" ")).includes(q)))
@@ -169,9 +169,16 @@ async function paginaInicio() {
     $(".js-ciudad2")?.addEventListener("click", () => elegirCiudad());
   };
   window.recalcular = pintar; pintar();
+  if (W.mostrarDestacados) destacadosCiudad(ns).then(l => { dest = l; pintar(); }).catch(() => {});
   $("#tipos").onclick = e => { const b = e.target.closest("[data-tipo]"); if (b) { FILTRO.tipo = b.dataset.tipo; pintar(); } };
   $("#buscar").oninput = e => { FILTRO.q = e.target.value; pintar(); };
 }
+
+// Si llegó información nueva (negocios, banners, portada), se vuelve a pintar el inicio sin recargar
+let REPINTA = null;
+function repintarInicio() { if (!$("#negocios")) return; clearTimeout(REPINTA); REPINTA = setTimeout(() => { aplicarTextos(); paginaInicio(); }, 150); }
+function aplicarTextos() { $$(".js-pie").forEach(e => e.textContent = CONF.web.pie);
+  $$(".js-redes").forEach(e => e.innerHTML = [["facebook", "Facebook"], ["instagram", "Instagram"], ["tiktok", "TikTok"]].filter(([k]) => CONF.web[k]).map(([k, t]) => `<a href="${esc(CONF.web[k])}" target="_blank" rel="noopener">${t}</a>`).join(" · ")); }
 
 /* =========== NEGOCIO: su carta =========== */
 let NEG = null, CATS = [], PRODS = [];
@@ -438,16 +445,18 @@ if (/iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone) $$(".js-i
 
 /* ---------- Arranque ---------- */
 (async () => {
-  await cargarConfig().catch(() => {}); await cargarRubros().catch(() => {});
-  $$(".js-pie").forEach(e => e.textContent = CONF.web.pie);
-  $$(".js-redes").forEach(e => e.innerHTML = [["facebook", "Facebook"], ["instagram", "Instagram"], ["tiktok", "TikTok"]].filter(([k]) => CONF.web[k]).map(([k, t]) => `<a href="${esc(CONF.web[k])}" target="_blank" rel="noopener">${t}</a>`).join(" · "));
+  pintarTabbar(); pintarBadge(); $$(".js-ciudad").forEach(b => b.textContent = CIUDAD.get().prov + " ▾"); pintarDir();
+  await Promise.all([cargarConfig(repintarInicio).catch(() => {}), cargarRubros(false, repintarInicio).catch(() => {})]);
+  aplicarTextos();
+  // La portada no necesita la sesión: se muestra ya (con lo guardado de la última visita) mientras se conecta Google
+  const portada = $("#negocios") ? paginaInicio() : null;
   let iniciado = false;
   Sesion.alCambiar(async u => {
     if (iniciado) return location.reload();      // entró o salió: recargar con la nueva sesión
     iniciado = true; YO = u; PERFIL = u ? await DB.get("usuarios", u.uid).catch(() => null) : null;
     if (u && !PERFIL) PERFIL = { nombre: u.nombre, email: u.email, direcciones: [] };
-    if (u && !DIR.get() && PERFIL.direcciones?.length) store.set("am_dir", PERFIL.direcciones[0]);
-    pintarTabbar(); encabezado(); paginaInicio(); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEnviar(); paginaEnvio(); paginaRastreo(); paginaLibro();
+    const dirNueva = u && !DIR.get() && PERFIL.direcciones?.length; if (dirNueva) store.set("am_dir", PERFIL.direcciones[0]);
+    encabezado(); if (dirNueva && portada) portada.then(() => window.recalcular && window.recalcular()); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEnviar(); paginaEnvio(); paginaRastreo(); paginaLibro();
     $$(".js-reparto").forEach(a => a.href = AP.reparto || "https://reparto.apamuy.app");
     $$(".js-anio").forEach(e => e.textContent = new Date().getFullYear());
     if (u && store.get("am_seguir", 0)) { store.del("am_seguir"); if (CART.cuenta()) abrirCarrito(); }
