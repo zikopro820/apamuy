@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "app.apamuy.twa",
-        "sha256_cert_fingerprints": ["AE:0D:A2:D3:9D:1A:59:B1:62:65:F4:EC:8D:07:8B:74:FF:17:AA:70:54:EE:61:34:0F:5A:4D:D1:C8:73:7F:19"]
+        "sha256_cert_fingerprints": ["AE:0D:A2:D3:9D:1A:59:B1:62:65:F4:EC:8D:07:8B:74:FF:17:AA:70:54:EE:61:34:0F:5A:4D:D1:C8:73:7F:19", "FD:AF:72:52:6C:F3:FB:C9:C1:22:C8:9B:80:DA:EB:87:32:66:A9:00:0A:A5:59:A7:79:2C:46:54:70:D4:92:CF"]
       }
     }]
