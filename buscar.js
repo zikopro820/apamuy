@@ -61,7 +61,7 @@ function formBusqueda(box, tipo) {
   $("#bqFoto")?.addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; foto = await redimensionar(f, 700, .72); $("#bqFv").innerHTML = `<img src="${foto}" alt=""><button type="button" class="x" aria-label="Quitar foto">×</button>`; $("#bqFv .x").onclick = () => { foto = ""; $("#bqFv").innerHTML = ""; }; });
   if (tipo === "auxilio") {
     mapaPin($("#bqM"), null, q => ubic = q).then(m => { MP = m; miUbicacion().then(p => { MP && MP.mover(p); }).catch(() => {}); });
-    $("#bqGps").onclick = () => miUbicacion().then(p => MP && MP.mover(p)).catch(() => toast("Activa la ubicación (GPS) del celular", true));
+    $("#bqGps").onclick = () => { toast("Buscando tu ubicación…"); miUbicacion().then(p => MP && MP.mover(p)).catch(avisarUbicacion); };
   }
   F.onsubmit = e => { e.preventDefault(); const err = $("#bqErr"); err.textContent = "";
     const texto = $("#bqTx").value.trim();

@@ -439,3 +439,4 @@ button.ck-row:hover { border-color: #d9cfc0; background: #fffdf9; }
 /* El carrusel empieza alineado con las categorías (el «imán» respeta el margen) */
 .promos { scroll-padding-inline: 16px; } .promos::after { content: ""; flex: 0 0 6px; }
 @media (min-width: 900px) { .promos { scroll-padding-inline: 0; } }
+.pasos-ub { padding-left: 20px; display: grid; gap: 6px; margin: 10px 0; }

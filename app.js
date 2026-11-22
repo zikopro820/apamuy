@@ -81,7 +81,7 @@ function editarDireccion(i, alListo) {
     <p class="err" id="dE" role="alert"></p><div class="g2">${i != null ? `<button type="button" class="btn btn-light" id="dDel">Eliminar</button>` : `<span></span>`}<button class="btn btn-red btn-lg">Guardar dirección</button></div></form>`, "h-alta");
   let M = null; mapaPin($("#dMapa", h), pos, q => pos = q).then(m => M = m);
   if (!pos) miUbicacion().then(q => { pos = q; M && M.mover(q); }).catch(() => {});
-  $("#dGPS", h).onclick = () => miUbicacion().then(q => { pos = q; M && M.mover(q); toast("Ubicación encontrada"); }).catch(() => toast("Activa el GPS y da permiso de ubicación", true));
+  $("#dGPS", h).onclick = () => { toast("Buscando tu ubicación…"); miUbicacion().then(q => { pos = q; M && M.mover(q); toast(q.prec > 150 ? "Ubicación aproximada: mueve el pin hasta tu puerta" : "Ubicación encontrada"); }).catch(avisarUbicacion); };
   $("#dDel", h)?.addEventListener("click", async () => { PERFIL.direcciones.splice(i, 1); await DB.set("usuarios", YO.uid, { direcciones: PERFIL.direcciones }); elegirDireccion(alListo); });
   $("#dF", h).onsubmit = async e => { e.preventDefault(); const tx = $("#dTx").value.trim();
     if (!tx) return $("#dE").textContent = "Escribe la dirección."; if (!pos) return $("#dE").textContent = "Marca tu ubicación en el mapa.";
@@ -112,7 +112,7 @@ function elegirCiudad(alListo) {
     <button class="btn btn-red btn-lg" id="cOk">Ver negocios</button></div>`);
   const provs = () => { const d = $("#cDep", h).value; $("#cProv", h).innerHTML = Object.keys(UBIGEO[d] || {}).sort((a, b) => a.localeCompare(b)).map(p => `<option ${p === c.prov ? "selected" : ""}>${esc(p)}</option>`).join(""); };
   provs(); $("#cDep", h).onchange = provs;
-  $("#cGPS", h).onclick = () => miUbicacion().then(q => { const x = ciudadCercana(q); if (!x) return; $("#cDep", h).value = x.dep; provs(); $("#cProv", h).value = x.prov; toast(`Estás en ${x.dis}, ${x.prov}`); }).catch(() => toast("Activa el GPS y da permiso de ubicación", true));
+  $("#cGPS", h).onclick = () => miUbicacion().then(q => { const x = ciudadCercana(q); if (!x) return; $("#cDep", h).value = x.dep; provs(); $("#cProv", h).value = x.prov; toast(`Estás en ${x.dis}, ${x.prov}`); }).catch(avisarUbicacion);
   $("#cOk", h).onclick = () => { CIUDAD.set({ dep: $("#cDep", h).value, prov: $("#cProv", h).value }); cerrarHoja(); alListo ? alListo() : location.reload(); };
 }
 let NEGS_CIUDAD = null;
