@@ -436,3 +436,6 @@ button.ck-row:hover { border-color: #d9cfc0; background: #fffdf9; }
 .dp .dp-add { color: #fff; padding: 0; font-weight: 800; } .dp .pz-d { color: #1A1430; padding: 1px 6px; } .dp .rt, .dp .rt small { color: #1A1430; } .dp .rt::first-letter { color: #f5a524; }
 .dp .pz s { color: var(--muted); font-weight: 600; } .dp-f .ph { display: grid; place-items: center; font-size: 2.8rem; height: auto; }
 .rt i { font-style: normal; color: #f5a524; margin-right: 1px; }
+/* El carrusel empieza alineado con las categorías (el «imán» respeta el margen) */
+.promos { scroll-padding-inline: 16px; } .promos::after { content: ""; flex: 0 0 6px; }
+@media (min-width: 900px) { .promos { scroll-padding-inline: 0; } }
