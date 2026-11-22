@@ -325,8 +325,8 @@ function abrirCarrito() {
 function Comprobante(box, total) {
   const g = store.get("am_comp", {}); let tipo = g.tipo === "factura" ? "factura" : "boleta", V = { ...g }, abierto = !!g.tipo;
   const pintar = () => {
-    box.innerHTML = !abierto ? `<button type="button" class="cmp-ab" id="cmpAb">🧾 ¿Necesitas <b>boleta con DNI</b> o <b>factura</b>? <span>Agregar</span></button>`
-      : `<div class="cmp"><div class="cmp-h"><b>🧾 Comprobante</b><button type="button" class="btn-link" id="cmpX">Quitar</button></div>
+    box.innerHTML = !abierto ? `<button type="button" class="ck-row" id="cmpAb">${icoW("receipt")}<div><b>Boleta con DNI o factura</b><small>Opcional · la emite el negocio</small></div><span>Agregar</span></button>`
+      : `<div class="cmp"><div class="cmp-h"><b>¿Qué comprobante necesitas?</b><button type="button" class="btn-link" id="cmpX">Quitar</button></div>
       <div class="seg sm"><button type="button" data-cmp="boleta" class="${tipo === "boleta" ? "on" : ""}">Boleta</button><button type="button" data-cmp="factura" class="${tipo === "factura" ? "on" : ""}">Factura</button></div>
       ${tipo === "boleta" ? `<div class="cmp-r"><input id="cmpDoc" inputmode="numeric" maxlength="8" placeholder="DNI${total() >= 700 ? "" : " (opcional)"}" value="${esc(V.tipo === "boleta" ? V.doc || "" : "")}">${CONF.verificarDni ? `<button type="button" class="btn btn-light" id="cmpBus">Buscar</button>` : ""}</div>
         <input id="cmpNom" maxlength="120" placeholder="Nombre completo" value="${esc(V.tipo === "boleta" ? V.nombre || "" : PERFIL.nombre || "")}">`
@@ -371,16 +371,22 @@ async function checkout() {
   // Si su delivery no llega hasta la dirección del cliente, empieza en «Recojo»
   const kmIni = DIR.get() ? distanciaKm(neg.ubic, DIR.get()) : null;
   let entrega = neg.delivery !== false && !(neg.recojo !== false && kmIni != null && kmIni > radioNeg(neg)) ? "delivery" : "recojo";
-  const h = hoja(`<button class="x" data-cerrar aria-label="Cerrar">×</button><form class="ck" id="ckF" novalidate><h2>Finalizar pedido</h2><p class="muted">en <b>${esc(neg.nombre)}</b></p>
-    <div class="seg">${neg.delivery !== false ? `<button type="button" data-e="delivery">🛵 Delivery</button>` : ""}${neg.recojo !== false ? `<button type="button" data-e="recojo">🏪 Recojo</button>` : ""}</div>
-    <div id="ckD"><div class="dir-b"><div><small>Entregar en</small><b class="js-dir"></b></div><button type="button" class="btn btn-light btn-sm" id="ckDir">Cambiar</button></div></div>
-    <div id="ckR" class="ck-local">🏪 Recoges en <b>${esc(neg.direccion || "")}</b>${neg.referencia ? " (" + esc(neg.referencia) + ")" : ""}.</div>
-    <div class="quien">👤 <b>${esc(PERFIL.nombre)}</b> · 📱 ${esc(PERFIL.celular)} <button type="button" class="btn-link" id="ckYo">Cambiar</button></div>
-    <label>Nota para el pedido<input id="ckNota" maxlength="140" placeholder="Ej. tocar el timbre, sin cubiertos"></label>
-    ${rubroDe(neg.rubro).mayorEdad ? `<label class="chk18"><input type="checkbox" id="ck18"> <span>Confirmo que soy <b>mayor de 18 años</b> y mostraré mi DNI al recibir.</span></label>` : ""}
-    <div id="ckComp"></div>
-    <div class="resumen" id="ckRes"></div><h3>Pago${rubroDe(neg.rubro).id === "comida" ? " de la comida" : " del pedido"} <small class="muted">· directo a ${esc(neg.nombre)}</small></h3><div id="pagoBox"></div>
-    <p class="err" id="ckErr" role="alert"></p><button class="btn btn-red btn-lg" id="ckBtn">Hacer pedido</button></form>`, "ck-h");
+  const nItems = CART.get().items.reduce((t, x) => t + (+x.cant || 0), 0), esComida = (neg.rubro || "comida") === "comida";
+  const h = hoja(`<button class="x" data-cerrar aria-label="Cerrar">×</button><form class="ck ck2" id="ckF" novalidate>
+    <div class="ck-head"><span class="ck-logo ph">${esc((neg.nombre || "?")[0])}${neg.logo ? `<img src="${esc(neg.logo)}" alt="" onerror="this.remove()">` : ""}</span><div><h2>Finalizar pedido</h2><p>${esc(neg.nombre)} · ${nItems} producto${nItems === 1 ? "" : "s"}</p></div></div>
+    <section class="ck-s"><h4>${icoW("bike")} Entrega</h4>
+      <div class="seg">${neg.delivery !== false ? `<button type="button" data-e="delivery">${icoW("bike")} Delivery</button>` : ""}${neg.recojo !== false ? `<button type="button" data-e="recojo">${icoW("store")} Recojo en tienda</button>` : ""}</div>
+      <div id="ckD"><button type="button" class="ck-row" id="ckDir">${icoW("pin")}<div><small>Entregar en</small><b class="js-dir"></b></div><span>Cambiar</span></button></div>
+      <div id="ckR"><div class="ck-row">${icoW("store")}<div><small>Recoges en</small><b>${esc(neg.direccion || "")}</b>${neg.referencia ? `<small>${esc(neg.referencia)}</small>` : ""}</div></div></div></section>
+    <section class="ck-s"><h4>${icoW("user")} Tus datos</h4>
+      <button type="button" class="ck-row" id="ckYo">${icoW("user")}<div><small>${esComida ? "Recibe" : "A nombre de"}</small><b>${esc(PERFIL.nombre)} · ${esc(PERFIL.celular)}</b></div><span>Cambiar</span></button>
+      <label class="ck-nota">${icoW("edit")}<input id="ckNota" maxlength="140" placeholder="${esComida ? "Nota (opcional): sin cubiertos, tocar timbre…" : "Nota para el negocio (opcional)"}"></label>
+      ${rubroDe(neg.rubro).mayorEdad ? `<label class="chk18"><input type="checkbox" id="ck18"> <span>Confirmo que soy <b>mayor de 18 años</b> y mostraré mi DNI al recibir.</span></label>` : ""}</section>
+    <section class="ck-s"><h4>${icoW("receipt")} Comprobante</h4><div id="ckComp"></div></section>
+    <section class="ck-s"><h4>${icoW("bag")} Resumen</h4><div class="resumen" id="ckRes"></div></section>
+    <section class="ck-s"><h4>${icoW("wallet")} Pago <small>· directo a ${esc(neg.nombre)}</small></h4><div id="pagoBox"></div></section>
+    <div class="ck-foot"><p class="err" id="ckErr" role="alert"></p><div class="ck-fr"><div class="ck-tot"><small>Total a pagar</small><b id="ckTot"></b></div><button class="btn btn-red btn-lg" id="ckBtn">Hacer pedido</button></div>
+      <p class="ck-seg">${icoW("lock")} Pagas directo a ${esc(neg.nombre)} con Yape, Plin o efectivo.</p></div></form>`, "ck-h");
   pintarDir();
   const pago = Pago($("#pagoBox", h), neg, { contraEntrega: neg.contraEntrega !== false, onChange: () => resumen() });
   const comp = Comprobante($("#ckComp", h), () => CART.subtotal() + Math.max(0, envio() || 0));
@@ -388,7 +394,8 @@ async function checkout() {
   const efectivo = () => pago.estado.met === "Efectivo";
   function resumen() {
     const e = envio(), sub = CART.subtotal(), tot = r2(sub + Math.max(0, e || 0));
-    $("#ckRes", h).innerHTML = `<div><span>${(neg.rubro || "comida") === "comida" ? "Comida" : "Productos"}</span><b>${S(sub)}</b></div>${entrega === "delivery" ? `<div><span>Delivery ${km() != null ? `(${km().toFixed(1)} km)` : ""}</span><b>${e == null ? "Elige tu dirección" : e < 0 ? `No llega (máx. ${radioNeg(neg)} km)` : S(e)}</b></div>` : ""}
+    const tt = $("#ckTot", h); if (tt) tt.textContent = S(tot);
+    $("#ckRes", h).innerHTML = `<div><span>${esComida ? "Comida" : "Productos"} <small>(${nItems})</small></span><b>${S(sub)}</b></div>${entrega === "delivery" ? `<div><span>Delivery ${km() >= .1 ? `<small>(${km().toFixed(1)} km)</small>` : ""}</span><b>${e == null ? "Elige tu dirección" : e < 0 ? `No llega (máx. ${radioNeg(neg)} km)` : S(e)}</b></div>` : ""}
       <div class="t"><span>Total</span><b>${S(tot)}</b></div>${entrega === "delivery" && e > 0 && !efectivo() ? `<p class="nota">🛵 El delivery (${S(e)}) se paga en efectivo al repartidor al recibir.</p>` : ""}
       ${entrega === "delivery" && sub < (+neg.pedidoMinimo || 0) ? `<p class="err">El pedido mínimo para delivery es ${S(neg.pedidoMinimo)}.</p>` : ""}`;
     pago.setMonto(efectivo() ? tot : sub);
@@ -410,7 +417,7 @@ async function checkout() {
     const pd = pago.datos(), cod = codigo("AP"), b = $("#ckBtn", h); b.disabled = true; b.textContent = "Enviando pedido…";
     try {
       const captura = pd.captura ? await subirFoto(`capturas/${YO.uid}/${cod}.jpg`, pd.captura) : "";
-      const ped = { codigo: cod, negocioId: neg.id, negocio: { nombre: neg.nombre, logo: neg.logo || "", telefono: neg.telefono || "", whatsapp: neg.whatsapp || "", direccion: neg.direccion || "", ubic: neg.ubic || null },
+      const ped = { codigo: cod, negocioId: neg.id, negocio: { nombre: neg.nombre, rubro: neg.rubro || "comida", logo: neg.logo || "", telefono: neg.telefono || "", whatsapp: neg.whatsapp || "", direccion: neg.direccion || "", ubic: neg.ubic || null },
         clienteUid: YO.uid, cliente: { nombre: PERFIL.nombre, celular: PERFIL.celular }, items: CART.get().items.map(x => ({ id: x.id, n: x.n, cant: x.cant, precio: x.precio, opts: x.opts || "", extras: x.extras || "", nota: x.nota || "" })),
         subtotal: sub, envio: entrega === "delivery" ? env : 0, km: entrega === "delivery" ? r2(km()) : 0, total: r2(sub + (entrega === "delivery" ? env : 0)), entrega,
         destino: entrega === "delivery" ? { texto: d.texto, referencia: d.referencia || "", lat: d.lat, lng: d.lng } : null, nota: $("#ckNota", h).value.trim(),
@@ -427,6 +434,8 @@ async function checkout() {
 /* =========== SEGUIMIENTO =========== */
 const PASOS = { servicio: [["nuevo", "Solicitud enviada", "📝"], ["cocina", "Aceptado", "🔧"], ["entregado", "Terminado", "✅"]], delivery: [["nuevo", "Recibido", "📝"], ["cocina", "Preparando", "🔥"], ["camino", "En camino", "🛵"], ["entregado", "Entregado", "✅"]],
   recojo: [["nuevo", "Recibido", "📝"], ["cocina", "Preparando", "🔥"], ["listo", "Listo para recoger", "🛍️"], ["entregado", "Entregado", "✅"]] };
+// Comida → «Preparando… ¡Buen provecho!». Ferretería, repuestos, farmacia… → «Alistando… ¡Gracias por tu compra!»
+const pasosDe = (p, comida) => (PASOS[p.entrega] || PASOS.delivery).map(([k, t, ic]) => k === "cocina" && !comida && p.entrega !== "servicio" ? [k, "Alistando", "📦"] : [k, t, ic]);
 const ORDEN = { "por-validar": 0, nuevo: 0, cocina: 1, listo: 2, camino: 2, entregado: 3 };
 async function paginaPedido() {
   const box = $("#pedidoBox"); if (!box) return; const c = params.get("c");
@@ -436,11 +445,12 @@ async function paginaPedido() {
   DB.escuchar("pedidos", c, async p => {
     if (!p) { box.innerHTML = `<div class="vacio">😕<h2>No encontramos el pedido ${esc(c)}</h2><a href="mis-pedidos">Ver mis pedidos</a></div>`; return; }
     const firma = p.estado + (p.tiempo || "") + (p.repartidor ? p.repartidor.nombre : ""); if (ult && ult !== firma) { navigator.vibrate?.(250); toast("Tu pedido se actualizó"); } ult = firma;
-    const pasos = PASOS[p.entrega] || PASOS.delivery, idx = p.entrega === "servicio" ? ({ nuevo: 0, cocina: 1, entregado: 2 }[p.estado] ?? -1) : (ORDEN[p.estado] ?? -1), malo = ["rechazado", "anulado"].includes(p.estado), r = p.repartidor || null;
-    const titulo = p.entrega === "servicio" ? ({ nuevo: "Enviamos tu solicitud al taller", cocina: "El taller aceptó tu solicitud 🔧", entregado: "Servicio terminado" }[p.estado] || (p.estado === "anulado" ? "El taller no pudo atenderte" : p.estado)) : { "por-validar": "Estamos validando tu pago", nuevo: "¡El negocio recibió tu pedido!", cocina: "Tu pedido se está preparando 🔥", listo: p.entrega === "recojo" ? "¡Listo para recoger!" : r ? "¡Listo! Tu repartidor va a recogerlo" : "Listo, esperando al repartidor", camino: "Tu pedido va en camino 🛵", entregado: "¡Entregado! Buen provecho", rechazado: "No se pudo validar tu pago", anulado: "Tu pedido fue anulado" }[p.estado] || p.estado;
+    const comida = (p.negocio?.rubro || "") === "comida" || (!p.negocio?.rubro && (p.items || []).some(x => x.extras || /plato|menú|combo|pollo|porción/i.test(x.n || "")));
+    const pasos = pasosDe(p, comida), idx = p.entrega === "servicio" ? ({ nuevo: 0, cocina: 1, entregado: 2 }[p.estado] ?? -1) : (ORDEN[p.estado] ?? -1), malo = ["rechazado", "anulado"].includes(p.estado), r = p.repartidor || null;
+    const titulo = p.entrega === "servicio" ? ({ nuevo: "Enviamos tu solicitud al taller", cocina: "El taller aceptó tu solicitud 🔧", entregado: "Servicio terminado" }[p.estado] || (p.estado === "anulado" ? "El taller no pudo atenderte" : p.estado)) : { "por-validar": "Estamos validando tu pago", nuevo: "¡El negocio recibió tu pedido!", cocina: comida ? "Tu pedido se está preparando 🔥" : "Están alistando tu pedido 📦", listo: p.entrega === "recojo" ? "¡Listo para recoger!" : r ? "¡Listo! Tu repartidor va a recogerlo" : "Listo, esperando al repartidor", camino: "Tu pedido va en camino 🛵", entregado: comida ? "¡Entregado! Buen provecho 😋" : "¡Entregado! Gracias por tu compra 🙌", rechazado: "No se pudo validar tu pago", anulado: "Tu pedido fue anulado" }[p.estado] || p.estado;
     box.innerHTML = `${params.get("nuevo") ? `<div class="ok-top">✓ Pedido enviado a <b>${esc(p.negocio.nombre)}</b> · código <b>${esc(p.codigo)}</b></div>` : ""}
       <div class="trk"><small>${esc(p.negocio.nombre)} · ${fmtFH(p.creado)}</small><h1>${esc(titulo)}</h1>
-        ${p.estado === "cocina" && p.tiempo ? `<p class="eta">⏱ Listo en aprox. <b>${esc(p.tiempo)} min</b></p>` : ""}
+        ${p.estado === "cocina" && p.tiempo ? `<p class="eta">⏱ ${comida ? "Listo" : "Listo para entregar"} en aprox. <b>${esc(p.tiempo)} min</b></p>` : ""}
         ${r ? `<p class="rep-est">${p.estado === "camino" ? "🛵 Tu repartidor va hacia ti" : p.estado === "entregado" ? "Te lo llevó" : "🛵 Tu repartidor va al negocio por tu pedido"}</p>${tarjetaRep(r, { contacto: p.estado !== "entregado" })}`
           : p.entrega === "delivery" && p.oferta && ["cocina", "listo"].includes(p.estado) ? `<p class="eta">🔎 Buscando un repartidor cerca…</p>` : ""}
         ${malo ? `<div class="bad">${p.motivo ? esc(p.motivo) + ". " : ""}Escríbele al negocio para ayudarte.</div>` : `<ol class="pasos">${pasos.map(([k, t, ic], i) => `<li class="${i < idx || p.estado === "entregado" ? "done" : i === idx ? "now" : ""}"><i>${ic}</i><span>${t}</span></li>`).join("")}</ol>`}</div>
@@ -448,7 +458,7 @@ async function paginaPedido() {
         <button class="btn btn-dark btn-lg" id="trkShare">${icoW("share")} Compartir seguimiento</button>` : ""}
       ${p.estado === "entregado" && r ? `<div id="trkCal"></div>` : ""}${!["entregado", "anulado", "rechazado"].includes(p.estado) ? `<div id="trkAv"></div>` : ""}
       <div class="det"><h3>Tu pedido</h3>${(p.items || []).map(x => `<div class="ci"><div><b>${x.cant}× ${esc(x.n)}</b>${detItem(x).map(d => `<small>${esc(d)}</small>`).join("")}</div><span>${S(x.precio * x.cant)}</span></div>`).join("")}
-        <div class="resumen"><div><span>Comida</span><b>${S(p.subtotal)}</b></div>${p.envio ? `<div><span>Delivery</span><b>${S(p.envio)}</b></div>` : ""}<div class="t"><span>Total</span><b>${S(p.total)}</b></div></div>
+        <div class="resumen"><div><span>${comida ? "Comida" : "Productos"}</span><b>${S(p.subtotal)}</b></div>${p.envio ? `<div><span>Delivery</span><b>${S(p.envio)}</b></div>` : ""}<div class="t"><span>Total</span><b>${S(p.total)}</b></div></div>
         <p class="muted">${p.entrega === "delivery" ? `🏠 ${esc(p.destino?.texto || "")}${p.destino?.referencia ? " · " + esc(p.destino.referencia) : ""}` : `🏪 Recojo en ${esc(p.negocio.direccion || "")}`}<br>💳 ${esc(p.pago)}${p.pagaCon ? ` · pagas con ${S(p.pagaCon)} (vuelto ${S(p.pagaCon - p.total)})` : ""}</p></div>
       ${p.comprobante ? `<div class="det cmp-d"><h3>🧾 ${p.comprobante.tipo === "factura" ? "Factura" : "Boleta"}</h3><p>${p.comprobante.doc ? `${p.comprobante.tipo === "factura" ? "RUC" : "DNI"} ${esc(p.comprobante.doc)} · ${esc(p.comprobante.nombre)}` : "Boleta simple"}</p>
         ${p.comprobanteEmitido ? `<p class="ok-t">✅ Emitida: <b>${esc(p.comprobanteEmitido.numero)}</b></p>${p.comprobanteEmitido.url ? `<a class="btn btn-light btn-sm" href="${esc(p.comprobanteEmitido.url)}" target="_blank" rel="noopener">📄 Ver / descargar</a>` : ""}` : `<p class="muted">${esc(p.negocio?.nombre || "El negocio")} te la enviará aquí cuando la emita.</p>`}</div>` : ""}
