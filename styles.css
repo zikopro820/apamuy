@@ -375,3 +375,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--red); outline: n
 .rsp-n { margin: 0; font-size: .9rem; } .rsp-f { width: 100%; max-height: 220px; object-fit: cover; border-radius: 12px; } .ok-t { margin: 0; color: #157a46; font-weight: 800; }
 .rsp .tags { display: flex; flex-wrap: wrap; gap: 6px; } .rsp .st { font-size: .78rem; font-weight: 700; padding: 4px 9px; border-radius: 999px; background: #f3efe8; color: var(--dark); } .rsp .st.warn { background: #FFE3E5; color: #b4232f; } .rsp .st.mute { background: none; color: var(--muted); font-weight: 600; }
 .promo[hidden] { display: none !important; } .promos.uno { grid-template-columns: 1fr; }
+/* v3 · Boleta o factura */
+.cmp-ab { width: 100%; text-align: left; background: #fff; border: 1px dashed #e0d6c8; border-radius: 14px; padding: 12px 14px; font: 600 .92rem var(--f); color: var(--dark); cursor: pointer; margin: 6px 0; display: flex; justify-content: space-between; gap: 8px; } .cmp-ab span { color: var(--red); font-weight: 800; }
+.cmp { border: 1px solid #efe7dc; border-radius: 14px; padding: 12px 14px; margin: 6px 0; display: grid; gap: 8px; background: #fff; } .cmp-h { display: flex; justify-content: space-between; align-items: center; }
+.cmp .seg.sm button { padding: 8px; } .cmp input { width: 100%; } .cmp-r { display: flex; gap: 8px; } .cmp-r input { flex: 1; min-width: 0; } .cmp-r .btn { white-space: nowrap; }
+.cmp small.ok-t, .ok-t { color: #157a46; font-weight: 700; } .cmp small.err { color: #c0262d; font-weight: 600; } .cmp-d p { margin: 2px 0; }

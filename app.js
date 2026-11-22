@@ -320,6 +320,50 @@ function abrirCarrito() {
 }
 
 /* ---------- Finalizar pedido ---------- */
+/* ---------- 🧾 Boleta o factura (la emite el NEGOCIO con su RUC; Apamuy solo le pasa los datos) ----------
+   Boleta: DNI opcional (obligatorio desde S/ 700, como pide SUNAT). Factura: RUC → razón social y dirección solas. */
+function Comprobante(box, total) {
+  const g = store.get("am_comp", {}); let tipo = g.tipo === "factura" ? "factura" : "boleta", V = { ...g }, abierto = !!g.tipo;
+  const pintar = () => {
+    box.innerHTML = !abierto ? `<button type="button" class="cmp-ab" id="cmpAb">🧾 ¿Necesitas <b>boleta con DNI</b> o <b>factura</b>? <span>Agregar</span></button>`
+      : `<div class="cmp"><div class="cmp-h"><b>🧾 Comprobante</b><button type="button" class="btn-link" id="cmpX">Quitar</button></div>
+      <div class="seg sm"><button type="button" data-cmp="boleta" class="${tipo === "boleta" ? "on" : ""}">Boleta</button><button type="button" data-cmp="factura" class="${tipo === "factura" ? "on" : ""}">Factura</button></div>
+      ${tipo === "boleta" ? `<div class="cmp-r"><input id="cmpDoc" inputmode="numeric" maxlength="8" placeholder="DNI${total() >= 700 ? "" : " (opcional)"}" value="${esc(V.tipo === "boleta" ? V.doc || "" : "")}">${CONF.verificarDni ? `<button type="button" class="btn btn-light" id="cmpBus">Buscar</button>` : ""}</div>
+        <input id="cmpNom" maxlength="120" placeholder="Nombre completo" value="${esc(V.tipo === "boleta" ? V.nombre || "" : PERFIL.nombre || "")}">`
+      : `<div class="cmp-r"><input id="cmpDoc" inputmode="numeric" maxlength="11" placeholder="RUC (11 números)" value="${esc(V.tipo === "factura" ? V.doc || "" : "")}">${CONF.verificarDni ? `<button type="button" class="btn btn-light" id="cmpBus">Buscar</button>` : ""}</div>
+        <input id="cmpNom" maxlength="160" placeholder="Razón social" value="${esc(V.tipo === "factura" ? V.nombre || "" : "")}"><input id="cmpDirF" maxlength="200" placeholder="Dirección fiscal" value="${esc(V.tipo === "factura" ? V.direccion || "" : "")}">`}
+      <small id="cmpM" class="${V.verificado && V.tipo === tipo ? "ok-t" : "muted"}">${V.verificado && V.tipo === tipo ? `✓ Verificado${V.estado ? ` · ${esc(V.estado)}${V.condicion ? " · " + esc(V.condicion) : ""}` : ""}` : `La emite el negocio.${CONF.verificarDni ? (tipo === "factura" ? " Toca «Buscar» y se llenan los datos solos." : " Con tu DNI, toca «Buscar» y se llena tu nombre.") : ""}`}</small></div>`;
+  };
+  pintar();
+  box.addEventListener("click", async e => {
+    if (e.target.closest("#cmpAb")) { abierto = true; return pintar(); }
+    if (e.target.closest("#cmpX")) { abierto = false; store.set("am_comp", {}); V = {}; return pintar(); }
+    const t = e.target.closest("[data-cmp]"); if (t) { tipo = t.dataset.cmp; return pintar(); }
+    if (e.target.closest("#cmpBus")) {
+      const doc = $("#cmpDoc", box).value.replace(/\D/g, ""), m = $("#cmpM", box), b = $("#cmpBus", box);
+      if (tipo === "boleta" ? !/^\d{8}$/.test(doc) : !rucOk(doc)) { m.className = "err"; m.textContent = tipo === "boleta" ? "El DNI tiene 8 números." : "El RUC tiene 11 números y empieza con 10 o 20."; return; }
+      b.disabled = true; b.textContent = "…"; m.className = "muted"; m.textContent = tipo === "boleta" ? "Consultando en RENIEC…" : "Consultando en SUNAT…";
+      try {
+        if (tipo === "boleta") { const r = await llamarServidor("verificarDni", { dni: doc, para: "comprobante" }); V = { tipo, doc, nombre: r.nombre, verificado: true }; }
+        else { const r = await llamarServidor("verificarRuc", { ruc: doc, para: "comprobante" }); V = { tipo, doc, nombre: r.razonSocial, direccion: r.direccion, estado: r.estado, condicion: r.condicion, verificado: true }; }
+        pintar();
+        if (tipo === "factura" && V.estado && V.estado !== "ACTIVO") { const m2 = $("#cmpM", box); m2.className = "err"; m2.textContent = `Este RUC figura como «${V.estado}» en SUNAT: no se le puede emitir factura.`; }
+      } catch (x) { V = { tipo, doc }; m.className = "err"; m.textContent = errConsulta(x, tipo === "boleta" ? "ese DNI" : "ese RUC"); }
+      b.disabled = false; b.textContent = "Buscar";
+    }
+  });
+  box.addEventListener("input", e => { if (e.target.id === "cmpDoc") { e.target.value = e.target.value.replace(/\D/g, ""); if (V.doc !== e.target.value) V = { tipo }; } });
+  const leer = () => !abierto ? null : { tipo, doc: $("#cmpDoc", box).value.replace(/\D/g, ""), nombre: $("#cmpNom", box).value.trim(), direccion: tipo === "factura" ? $("#cmpDirF", box).value.trim() : "",
+    verificado: !!(V.verificado && V.doc === $("#cmpDoc", box).value.replace(/\D/g, "")), ...(tipo === "factura" && V.estado ? { estado: V.estado, condicion: V.condicion || "" } : {}) };
+  return {
+    validar() { const c = leer(); if (!c) return "";
+      if (c.tipo === "boleta") { if (c.doc && !/^\d{8}$/.test(c.doc)) return "El DNI de la boleta tiene 8 números."; if (total() >= 700 && !c.doc) return "Para boletas desde S/ 700, SUNAT pide el DNI."; if (c.doc && !c.nombre) return "Escribe el nombre para la boleta."; }
+      else { if (!rucOk(c.doc)) return "Escribe un RUC válido para la factura (11 números)."; if (!c.nombre) return "Falta la razón social (toca «Buscar»)."; if (!c.direccion) return "Falta la dirección fiscal de la factura."; if (c.estado && c.estado !== "ACTIVO") return "Ese RUC no está activo en SUNAT."; }
+      store.set("am_comp", c); return ""; },
+    datos: () => { const c = leer(); return c && (c.tipo === "factura" || c.doc) ? c : c ? { tipo: "boleta", doc: "", nombre: "" } : null; }
+  };
+}
+
 async function checkout() {
   const c = CART.get(), neg = (window.NEG && NEG.id === c.negocio) ? NEG : await DB.get("negocios", c.negocio);
   if (!neg || neg.estado !== "activo" || neg.bloqueoCobro) return toast("Este negocio no está disponible ahora", true);
@@ -334,10 +378,12 @@ async function checkout() {
     <div class="quien">👤 <b>${esc(PERFIL.nombre)}</b> · 📱 ${esc(PERFIL.celular)} <button type="button" class="btn-link" id="ckYo">Cambiar</button></div>
     <label>Nota para el pedido<input id="ckNota" maxlength="140" placeholder="Ej. tocar el timbre, sin cubiertos"></label>
     ${rubroDe(neg.rubro).mayorEdad ? `<label class="chk18"><input type="checkbox" id="ck18"> <span>Confirmo que soy <b>mayor de 18 años</b> y mostraré mi DNI al recibir.</span></label>` : ""}
+    <div id="ckComp"></div>
     <div class="resumen" id="ckRes"></div><h3>Pago${rubroDe(neg.rubro).id === "comida" ? " de la comida" : " del pedido"} <small class="muted">· directo a ${esc(neg.nombre)}</small></h3><div id="pagoBox"></div>
     <p class="err" id="ckErr" role="alert"></p><button class="btn btn-red btn-lg" id="ckBtn">Hacer pedido</button></form>`, "ck-h");
   pintarDir();
   const pago = Pago($("#pagoBox", h), neg, { contraEntrega: neg.contraEntrega !== false, onChange: () => resumen() });
+  const comp = Comprobante($("#ckComp", h), () => CART.subtotal() + Math.max(0, envio() || 0));
   const km = () => entrega === "delivery" ? distanciaKm(neg.ubic, DIR.get()) : 0, envio = () => entrega === "delivery" ? costoNeg(neg, km()) : 0;
   const efectivo = () => pago.estado.met === "Efectivo";
   function resumen() {
@@ -359,6 +405,7 @@ async function checkout() {
     if (entrega === "delivery") { if (!d) return err.textContent = "Elige la dirección de entrega."; if (env < 0) return err.textContent = "Tu dirección está fuera de la zona de delivery de este negocio.";
       if (sub < (+neg.pedidoMinimo || 0)) return err.textContent = `El pedido mínimo para delivery es ${S(neg.pedidoMinimo)}.`; }
     if ($("#ck18", h) && !$("#ck18", h).checked) return err.textContent = "Confirma que eres mayor de 18 años.";
+    const ce = comp.validar(); if (ce) return err.textContent = ce;
     const pe = pago.validar(); if (pe) return err.textContent = pe;
     const pd = pago.datos(), cod = codigo("AP"), b = $("#ckBtn", h); b.disabled = true; b.textContent = "Enviando pedido…";
     try {
@@ -368,7 +415,7 @@ async function checkout() {
         subtotal: sub, envio: entrega === "delivery" ? env : 0, km: entrega === "delivery" ? r2(km()) : 0, total: r2(sub + (entrega === "delivery" ? env : 0)), entrega,
         destino: entrega === "delivery" ? { texto: d.texto, referencia: d.referencia || "", lat: d.lat, lng: d.lng } : null, nota: $("#ckNota", h).value.trim(),
         pago: pd.pago, operacion: pd.operacion, montoLeido: pd.montoLeido, coincide: pd.coincide, fechaOk: pd.fechaOk, pagaCon: pd.pagaCon, captura,
-        ...($("#ck18", h) ? { mayorEdad: true } : {}), ...(CART.get().solicitud ? { solicitud: CART.get().solicitud } : {}), estado: pd.pago === "Efectivo" ? "nuevo" : "por-validar", dia: HOY(), mes: HOY().slice(0, 7), creado: new Date().toISOString() };
+        ...($("#ck18", h) ? { mayorEdad: true } : {}), ...(CART.get().solicitud ? { solicitud: CART.get().solicitud } : {}), ...(comp.datos() ? { comprobante: comp.datos() } : {}), estado: pd.pago === "Efectivo" ? "nuevo" : "por-validar", dia: HOY(), mes: HOY().slice(0, 7), creado: new Date().toISOString() };
       // Si viene de «Buscar repuesto», la búsqueda queda como elegida en la misma operación
       await DB.batch([{ op: "set", col: "pedidos", id: cod, merge: false, data: ped }, ...(ped.solicitud ? [{ op: "set", col: "solicitudes", id: ped.solicitud, data: { estado: "elegida", elegida: neg.id, pedido: cod, actualizado: ped.creado } }] : [])]);
       if (ped.solicitud && store.get("am_busq", null)?.id === ped.solicitud) store.set("am_busq", null);
@@ -403,6 +450,8 @@ async function paginaPedido() {
       <div class="det"><h3>Tu pedido</h3>${(p.items || []).map(x => `<div class="ci"><div><b>${x.cant}× ${esc(x.n)}</b>${detItem(x).map(d => `<small>${esc(d)}</small>`).join("")}</div><span>${S(x.precio * x.cant)}</span></div>`).join("")}
         <div class="resumen"><div><span>Comida</span><b>${S(p.subtotal)}</b></div>${p.envio ? `<div><span>Delivery</span><b>${S(p.envio)}</b></div>` : ""}<div class="t"><span>Total</span><b>${S(p.total)}</b></div></div>
         <p class="muted">${p.entrega === "delivery" ? `🏠 ${esc(p.destino?.texto || "")}${p.destino?.referencia ? " · " + esc(p.destino.referencia) : ""}` : `🏪 Recojo en ${esc(p.negocio.direccion || "")}`}<br>💳 ${esc(p.pago)}${p.pagaCon ? ` · pagas con ${S(p.pagaCon)} (vuelto ${S(p.pagaCon - p.total)})` : ""}</p></div>
+      ${p.comprobante ? `<div class="det cmp-d"><h3>🧾 ${p.comprobante.tipo === "factura" ? "Factura" : "Boleta"}</h3><p>${p.comprobante.doc ? `${p.comprobante.tipo === "factura" ? "RUC" : "DNI"} ${esc(p.comprobante.doc)} · ${esc(p.comprobante.nombre)}` : "Boleta simple"}</p>
+        ${p.comprobanteEmitido ? `<p class="ok-t">✅ Emitida: <b>${esc(p.comprobanteEmitido.numero)}</b></p>${p.comprobanteEmitido.url ? `<a class="btn btn-light btn-sm" href="${esc(p.comprobanteEmitido.url)}" target="_blank" rel="noopener">📄 Ver / descargar</a>` : ""}` : `<p class="muted">${esc(p.negocio?.nombre || "El negocio")} te la enviará aquí cuando la emita.</p>`}</div>` : ""}
       ${p.servicio ? `<div class="det"><h3>Tu solicitud</h3><p>${esc(p.servicio.detalle)}</p><p class="muted">${p.servicio.auxilio ? `🚨 Auxilio mecánico${p.servicio.llegaMin ? ` · llega en ~${p.servicio.llegaMin} min` : ""}` : p.servicio.lugar === "domicilio" ? "🏠 A domicilio" : "🔧 En el taller"}${p.servicio.fecha ? " · " + fmtFH(p.servicio.fecha) : ""}</p>${p.negocio.telefono ? `<a class="btn btn-red" href="tel:${esc(p.negocio.telefono)}">📞 Llamar al taller</a>` : ""}</div>` : ""}
       <div class="acts">${p.negocio.whatsapp ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="${esc(wa(p.negocio.whatsapp, `Hola ${p.negocio.nombre} 👋 consulto por mi pedido ${p.codigo} de Apamuy.`))}">Escribir a ${esc(p.negocio.nombre)}</a>` : ""}<a class="btn btn-light" href="./">Volver al inicio</a></div>`;
     cajaAvisos($("#trkAv"));
