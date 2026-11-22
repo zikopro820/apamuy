@@ -1,17 +1,37 @@
 {
   "name": "Apamuy · Te lo traemos",
   "short_name": "Apamuy",
-  "description": "Pide comida de los negocios de tu ciudad y te lo traemos.",
-  "start_url": "./?app=1",
-  "scope": "./",
+  "description": "Pide comida, farmacia, ferretería, repuestos y más de los negocios de tu ciudad. Envía paquetes y sigue tu pedido en vivo.",
+  "start_url": "/?app=1",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FFF7EF",
   "theme_color": "#E63946",
   "lang": "es-PE",
   "icons": [
-    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "img/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
+    {
+      "src": "/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "/",
+  "categories": [
+    "food",
+    "shopping",
+    "lifestyle"
+  ],
+  "prefer_related_applications": false
 }

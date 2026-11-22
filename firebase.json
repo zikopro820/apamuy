@@ -4,7 +4,11 @@
     "ignore": [
       "firebase.json",
       ".firebaserc",
-      "**/.*",
+      "**/.git/**",
+      "**/.github/**",
+      "**/.gitignore",
+      "**/.DS_Store",
+      "**/.firebase/**",
       "**/node_modules/**",
       "*.txt",
       "*.md"
@@ -46,8 +50,27 @@
             "value": "public, max-age=604800"
           }
         ]
+      },
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       }
     ],
-    "trailingSlash": false
+    "trailingSlash": false,
+    "rewrites": [
+      {
+        "source": "/.well-known/assetlinks.json",
+        "destination": "/assetlinks.json"
+      }
+    ]
   }
 }
