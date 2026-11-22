@@ -1,12 +1,8 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "app.apamuy",
-      "sha256_cert_fingerprints": [
-        "PEGA_AQUI_LA_HUELLA_SHA256_DE_PLAY_CONSOLE"
-      ]
-    }
-  }
-]
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.apamuy.twa",
+        "sha256_cert_fingerprints": ["AE:0D:A2:D3:9D:1A:59:B1:62:65:F4:EC:8D:07:8B:74:FF:17:AA:70:54:EE:61:34:0F:5A:4D:D1:C8:73:7F:19"]
+      }
+    }]
