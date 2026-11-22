@@ -22,9 +22,10 @@ function bloqueBuscar(ns, rid) {
   const hay = r => (ns || []).some(n => (n.rubro || "comida") === r), b = BUSQ.get(), activa = b && new Date(b.vence) > Date.now();
   const W = CONF.web, verRep = W.btnBusq !== false && (!rid || recibeBusq(rid)) && (ns || []).some(n => recibeBusq(n.rubro || "comida")), verAux = W.btnAux !== false && (!rid || rid === "talleres") && hay("talleres");
   el.hidden = !verRep && !verAux && !activa;
-  el.innerHTML = (activa ? `<a class="bq-act" href="buscar?s=${encodeURIComponent(b.id)}"><span class="radar-w sm"></span><div><b>${SOLT[b.tipo]?.ico || "🔍"} Tienes una búsqueda activa</b><small>${esc(b.texto || "")} · mira quién te respondió</small></div>${icoW("chev")}</a>` : "")
-    + (verRep ? `<a class="bq-b" href="buscar?t=repuesto"><span class="bq-i">🔍</span><div><b>${esc(W.bqTit)}</b><small>${esc(W.bqTxt)}</small></div>${icoW("chev")}</a>` : "")
-    + (verAux ? `<a class="bq-b aux" href="buscar?t=auxilio"><span class="bq-i">🚨</span><div><b>${esc(W.auxTit)}</b><small>${esc(W.auxTxt)}</small></div>${icoW("chev")}</a>` : "");
+  // Mismo formato que «Envía un paquete»: rectángulos del carrusel del inicio
+  el.innerHTML = (activa ? `<a class="promo p-act" href="buscar?s=${encodeURIComponent(b.id)}"><span class="promo-i"><span class="radar-w sm"></span></span><div><b>Búsqueda activa</b><small>${esc(b.texto || "")} · mira las respuestas</small></div></a>` : "")
+    + (verRep ? `<a class="promo p-bq" href="buscar?t=repuesto"><span class="promo-i">🔍</span><div><b>${esc(W.bqTit)}</b><small>${esc(W.bqTxt)}</small></div></a>` : "")
+    + (verAux ? `<a class="promo p-aux" href="buscar?t=auxilio"><span class="promo-i">🚨</span><div><b>${esc(W.auxTit)}</b><small>${esc(W.auxTxt)}</small></div></a>` : "");
 }
 
 /* ---------- Página /buscar ---------- */

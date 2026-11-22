@@ -125,7 +125,7 @@ async function negociosCiudad() {
 async function destacadosCiudad(ns) {
   const c = CIUDAD.get(), k = provKey(c.dep, c.prov), g = MEM.get("dest_" + k);
   const traer = async () => { const l = (await Promise.all(ns.slice(0, 30).map(n => DB.list(`negocios/${n.id}/productos`, ["destacado", "==", true]).then(ps => ps.filter(p => p.activo !== false && !p.agotado).slice(0, 4)
-    .map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio, foto: p.foto || "", neg: n.id, negNombre: n.nombre, rubro: n.rubro || "comida" }))).catch(() => [])))).flat(); MEM.set("dest_" + k, l); return l; };
+    .map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio, precioAntes: p.precioAntes || null, foto: p.foto || "", neg: n.id, negNombre: n.nombre, rubro: n.rubro || "comida", estrellasSum: n.estrellasSum || 0, estrellasN: n.estrellasN || 0 }))).catch(() => [])))).flat(); MEM.set("dest_" + k, l); return l; };
   // Se actualizan como máximo cada 5 min (cuestan lecturas); mientras tanto se muestran los guardados
   if (!DEMO && g !== undefined) { const t = (JSON.parse(localStorage.getItem("am_c_dest_" + k) || "{}").t) || 0; if (Date.now() - t > 300000) traer().then(l => { if (JSON.stringify(l) !== JSON.stringify(g)) repintarInicio(); }).catch(() => {}); return g; }
   return traer();
@@ -149,10 +149,11 @@ async function paginaInicio() {
   $("#banners").innerHTML = bs.map(b => `<a class="bn" href="${esc(enlaceBanner(b))}" style="--bn:${esc(b.color || "#E63946")}"><div><b>${esc(b.titulo || "")}</b><p>${esc(b.texto || "")}</p>${b.boton ? `<span>${esc(b.boton)} →</span>` : ""}</div>${b.imagen ? `<img src="${esc(imgUrl(b.imagen))}" alt="" loading="lazy" onerror="this.remove()">` : ""}</a>`).join("");
   $("#banners").hidden = !bs.length;
   window.bloqueBuscar && bloqueBuscar(ns, rid);
+  // Carrusel de accesos: paquete y repartidor solo en el inicio; repuestos/auxilio también dentro de su categoría
   const pr = $(".promos"); if (pr) { const W2 = CONF.web, env = $("#prEnv"), rep = $("#prRep");
-    if (env) { env.hidden = !W2.btnEnvio; $("#prEnvT").textContent = W2.envTit; $("#prEnvX").textContent = W2.envTxt; }
-    if (rep) { rep.hidden = !W2.btnRep; $("#prRepT").textContent = W2.repTit; $("#prRepX").textContent = W2.repTxt; }
-    pr.style.display = rid || (!W2.btnEnvio && !W2.btnRep) ? "none" : ""; pr.classList.toggle("uno", !W2.btnEnvio || !W2.btnRep); }
+    if (env) { env.hidden = !!rid || !W2.btnEnvio; $("#prEnvT").textContent = W2.envTit; $("#prEnvX").textContent = W2.envTxt; }
+    if (rep) { rep.hidden = !!rid || !W2.btnRep; $("#prRepT").textContent = W2.repTit; $("#prRepX").textContent = W2.repTxt; }
+    pr.style.display = $$(".promo", pr).some(x => !x.hidden && !x.closest("[hidden]")) ? "" : "none"; }
   const base = ns.filter(n => !rid || (n.rubro || "comida") === rid);
   let dest = []; if (W.mostrarDestacados) $("#destTit").textContent = W.tituloDestacados;   // los destacados llegan después: no frenan la lista
   const pintar = () => {
@@ -164,14 +165,16 @@ async function paginaInicio() {
     $("#tipos").hidden = !$("#tipos").innerHTML;
     const ids = new Set(l.map(n => n.id)), ds = dest.filter(p => ids.has(p.neg) && (!q || norm(p.nombre + " " + p.negNombre).includes(q)));
     $("#destBox").hidden = !ds.length;
-    $("#dest").innerHTML = ds.map(p => `<a class="dp" href="negocio?n=${encodeURIComponent(p.neg)}&p=${encodeURIComponent(p.id)}">${fotoP(p)}<b>${esc(p.nombre)}</b><small>${esc(p.negNombre)}</small><span>${rubroDe(p.rubro).modo === "servicios" ? "Desde " : ""}${S(p.precio)}</span></a>`).join("");
+    // Ofertas primero (las que tienen «precio antes»)
+    $("#dest").innerHTML = ds.slice().sort((a, b) => dtoDe(b) - dtoDe(a)).map(p => `<a class="dp" href="negocio?n=${encodeURIComponent(p.neg)}&p=${encodeURIComponent(p.id)}"><div class="dp-f">${fotoP(p)}<span class="dp-add" aria-hidden="true">+</span></div>
+      ${precioHTML(p, rubroDe(p.rubro).modo === "servicios")}<b>${esc(p.nombre)}</b><small>${esc(p.negNombre)} · ${estrellasNeg(p)}</small></a>`).join("");
     const nomR = rid ? R.nombre : "", vacio = `<div class="vacio">🔎<h2>Aún no hay negocios${rid ? " de " + esc(nomR.toLowerCase()) : ""} en ${esc(c.prov)}</h2><p class="muted">Prueba con otra categoría o cambia de ciudad.</p><button class="btn btn-light js-ciudad2">Cambiar de ciudad</button></div>`;
     const tarjeta = (n, lejos) => { const rr = rubroDe(n.rubro), serv = rr.modo === "servicios", cd = d && !serv ? costoNeg(n, n.km) : null;
       const info = serv ? " · 🔧 Servicio" : lejos ? ` · 📍 ${n.km.toFixed(0)} km · ${n.recojo !== false ? "<b class='neg-f'>Solo recojo</b>" : "<b class='neg-f'>No llega a tu zona</b>"}`
         : n.delivery === false ? ` · ⏱ ${esc(n.tiempo || "30-40 min")} · 🏪 Solo recojo` : ` · ⏱ ${esc(d ? tiempoEst(n, n.km) : (n.tiempo || "30-40 min"))}${cd > 0 ? ` · 🛵 ${S(cd)}` : ""}`;
       return `<a class="neg ${n.ab ? "" : "cerr"} ${lejos ? "lejos" : ""}" href="negocio?n=${encodeURIComponent(n.id)}">
       <div class="neg-p">${n.portada ? `<img src="${esc(n.portada)}" alt="" loading="lazy" onerror="this.remove()">` : ""}${n.ab ? "" : `<span class="tag-c">Cerrado · abre ${esc(n.abre || "")}</span>`}${n.demo ? `<span class="tag-e">Ejemplo</span>` : ""}</div>
-      <div class="neg-b">${n.logo ? `<img class="neg-l" src="${esc(n.logo)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : `<span class="neg-l ph">${esc((n.nombre || "?")[0])}</span>`}<div><h3>${esc(n.nombre)}</h3>
+      <div class="neg-b">${n.logo ? `<img class="neg-l" src="${esc(n.logo)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : `<span class="neg-l ph">${esc((n.nombre || "?")[0])}</span>`}<div><h3>${esc(n.nombre)} ${estrellasNeg(n)}</h3>
       <p>${esc(n.tipo || rr.nombre)}${info}${n.distrito ? ` · ${esc(n.distrito)}` : ""}</p></div></div></a>`; };
     if (!d || !l.length) {   // sin dirección todavía: una sola lista
       $("#negTit").textContent = rid ? `${nomR} en ${c.prov}` : CONF.web.tituloNegocios;
@@ -211,15 +214,15 @@ async function paginaNegocio() {
   if (RB.mayorEdad && !sessionStorage.getItem("am_18")) confirmar18();
   const ab = estaAbierto(NEG), d = DIR.get(), km = d ? distanciaKm(NEG.ubic, d) : null, c = NEG.delivery === false ? null : costoNeg(NEG, km);
   $("#negHead").innerHTML = `<div class="nh-p">${NEG.portada ? `<img src="${esc(NEG.portada)}" alt="" onerror="this.remove()">` : ""}</div>
-    <div class="nh-b">${NEG.logo ? `<img class="neg-l" src="${esc(NEG.logo)}" alt="">` : `<span class="neg-l ph">${esc(NEG.nombre[0])}</span>`}<div><h1>${esc(NEG.nombre)}</h1>
+    <div class="nh-b">${NEG.logo ? `<img class="neg-l" src="${esc(NEG.logo)}" alt="">` : `<span class="neg-l ph">${esc(NEG.nombre[0])}</span>`}<div><h1>${esc(NEG.nombre)}</h1><p class="nh-rt">${estrellasNeg(NEG)}</p>
     <p class="muted">${esc(NEG.tipo || "")} · ${esc(NEG.direccion || "")}</p><p><span class="estado ${ab ? "on" : "off"}">${ab ? `Abierto hasta las ${esc(NEG.cierra)}` : `Cerrado · abre a las ${esc(NEG.abre)}`}</span> · ⏱ ${esc(c > 0 ? tiempoEst(NEG, km) : (NEG.tiempo || "30-40 min"))}${NEG.delivery === false ? " · 🏪 Solo recojo" : c == null ? "" : c < 0 ? "" : ` · 🛵 Delivery ${S(c)}`}</p>
     ${c != null && c < 0 && !SERV ? `<p class="aviso sm">📍 Estás a ${km.toFixed(0)} km. Su delivery llega hasta ${radioNeg(NEG)} km${NEG.recojo !== false ? ": puedes pedir y <b>recogerlo en el local</b>." : "."}</p>` : ""}
     ${NEG.descripcion ? `<p>${esc(NEG.descripcion)}</p>` : ""}${RB.aviso ? `<p class="aviso sm">${esc(RB.aviso)}</p>` : ""}${NEG.demo ? `<p class="aviso sm">🧪 Tienda de ejemplo para mostrar cómo funciona Apamuy.</p>` : ""}</div></div>`;
   const cats = CATS.filter(k => PRODS.some(p => p.cat === k.id)), dest = PRODS.filter(p => p.destacado && !p.agotado);
   $("#chips").innerHTML = (dest.length ? `<a href="#c-dest" class="chip on">⭐ Favoritos</a>` : "") + cats.map(k => `<a href="#c-${esc(k.id)}" class="chip">${esc(k.nombre)}</a>`).join("");
   const card = p => `<article class="card ${p.agotado ? "agot" : ""}"><button type="button" class="card-b" data-p="${esc(p.id)}" ${p.agotado || !ab ? "disabled" : ""} aria-label="${esc(p.nombre)}">
-    <div class="card-img">${fotoP(p)}${p.agotado ? `<span class="tag-ag">Agotado</span>` : p.destacado ? `<span class="tag-st">⭐ Favorito</span>` : ""}</div>
-    <div class="card-t"><h3>${esc(p.nombre)}</h3><p>${esc(p.desc || "")}</p><div class="card-f"><b>${SERV ? "Desde " : ""}${S(p.precio)}</b>${p.agotado || !ab ? "" : SERV ? `<span class="add sol">Solicitar</span>` : `<span class="add">+</span>`}</div></div></button></article>`;
+    <div class="card-img">${fotoP(p)}${p.agotado ? `<span class="tag-ag">Agotado</span>` : dtoDe(p) ? `<span class="tag-dto">-${dtoDe(p)}%</span>` : p.destacado ? `<span class="tag-st">⭐ Favorito</span>` : ""}</div>
+    <div class="card-t"><h3>${esc(p.nombre)}</h3><p>${esc(p.desc || "")}</p><div class="card-f">${precioHTML(p, SERV)}${p.agotado || !ab ? "" : SERV ? `<span class="add sol">Solicitar</span>` : `<span class="add">+</span>`}</div></div></button></article>`;
   box.innerHTML = (ab ? "" : `<div class="aviso">🔒 Ahora está cerrado. Puedes ver la carta y pedir desde las ${esc(NEG.abre)}.</div>`)
     + (dest.length ? `<section class="sec" id="c-dest"><h2>⭐ Favoritos</h2><div class="grid">${dest.map(card).join("")}</div></section>` : "")
     + cats.map(k => `<section class="sec" id="c-${esc(k.id)}"><h2>${esc(k.nombre)}</h2><div class="grid">${PRODS.filter(p => p.cat === k.id).map(card).join("")}</div></section>`).join("")
@@ -232,7 +235,7 @@ function abrirProducto(id) {
   const p = PRODS.find(x => x.id === id); if (!p || p.agotado) return;
   const grupos = p.opciones || [], extras = p.extrasGratis ? (NEG.extrasGratis || []) : [];
   const h = hoja(`<button class="x" data-cerrar aria-label="Cerrar">×</button><div class="hp-img">${fotoP(p)}</div>
-    <form class="hp" id="hpF" novalidate><h2>${esc(p.nombre)}</h2><p class="muted">${esc(p.desc || "")}</p><b class="hp-pr">${S(p.precio)}</b>
+    <form class="hp" id="hpF" novalidate><h2>${esc(p.nombre)}</h2><p class="muted">${esc(p.desc || "")}</p><div class="hp-pr">${precioHTML(p)}</div>
       ${grupos.map((g, gi) => `<fieldset class="op" data-g="${gi}"><legend>${esc(g.titulo)} ${g.req ? `<em>Obligatorio</em>` : `<small>Opcional</small>`}</legend>
         ${(g.items || []).map((it, ii) => `<label class="op-i"><input type="${g.tipo === "varios" ? "checkbox" : "radio"}" name="g${gi}" value="${ii}" ${g.tipo !== "varios" && g.req && ii === 0 ? "checked" : ""}><span>${esc(it.n)}</span>${+it.p ? `<b>+ ${S(it.p)}</b>` : ""}</label>`).join("")}</fieldset>`).join("")}
       ${extras.length ? `<fieldset class="op"><legend>Extras gratis <small>Elige los que quieras</small></legend><div class="cremas">${extras.map(c => `<label class="cr"><input type="checkbox" name="extra" value="${esc(c)}"><span>${esc(c)}</span></label>`).join("")}</div></fieldset>` : ""}
@@ -456,7 +459,7 @@ async function paginaPedido() {
         ${malo ? `<div class="bad">${p.motivo ? esc(p.motivo) + ". " : ""}Escríbele al negocio para ayudarte.</div>` : `<ol class="pasos">${pasos.map(([k, t, ic], i) => `<li class="${i < idx || p.estado === "entregado" ? "done" : i === idx ? "now" : ""}"><i>${ic}</i><span>${t}</span></li>`).join("")}</ol>`}</div>
       ${p.entrega === "delivery" && !malo && p.estado !== "entregado" ? `<div class="mapa trk-m" id="trkMapa"></div><p class="muted sm">🏪 negocio · 🏠 tu dirección${r && r.ubic ? " · 🛵 repartidor en vivo" : ""}</p>
         <button class="btn btn-dark btn-lg" id="trkShare">${icoW("share")} Compartir seguimiento</button>` : ""}
-      ${p.estado === "entregado" && r ? `<div id="trkCal"></div>` : ""}${!["entregado", "anulado", "rechazado"].includes(p.estado) ? `<div id="trkAv"></div>` : ""}
+      ${p.estado === "entregado" ? `<div id="trkCalN"></div>` : ""}${p.estado === "entregado" && r ? `<div id="trkCal"></div>` : ""}${!["entregado", "anulado", "rechazado"].includes(p.estado) ? `<div id="trkAv"></div>` : ""}
       <div class="det"><h3>Tu pedido</h3>${(p.items || []).map(x => `<div class="ci"><div><b>${x.cant}× ${esc(x.n)}</b>${detItem(x).map(d => `<small>${esc(d)}</small>`).join("")}</div><span>${S(x.precio * x.cant)}</span></div>`).join("")}
         <div class="resumen"><div><span>${comida ? "Comida" : "Productos"}</span><b>${S(p.subtotal)}</b></div>${p.envio ? `<div><span>Delivery</span><b>${S(p.envio)}</b></div>` : ""}<div class="t"><span>Total</span><b>${S(p.total)}</b></div></div>
         <p class="muted">${p.entrega === "delivery" ? `🏠 ${esc(p.destino?.texto || "")}${p.destino?.referencia ? " · " + esc(p.destino.referencia) : ""}` : `🏪 Recojo en ${esc(p.negocio.direccion || "")}`}<br>💳 ${esc(p.pago)}${p.pagaCon ? ` · pagas con ${S(p.pagaCon)} (vuelto ${S(p.pagaCon - p.total)})` : ""}</p></div>
@@ -471,8 +474,29 @@ async function paginaPedido() {
     // El enlace compartido se mantiene al día con el estado y el repartidor
     if (p.rastreo && p.clienteUid === YO.uid) { const sig = p.estado + "|" + (r ? r.uid : ""); if (store.get("am_rs_" + p.codigo, "") !== sig) { store.set("am_rs_" + p.codigo, sig); DB.set("rastreo", p.rastreo, { estado: p.estado, repartidor: r ? { ...r, ubic: null } : null }).catch(() => {}); } }
     if ($("#trkCal")) cajaCalificar($("#trkCal"), "pedidos", p.codigo, r);
+    if ($("#trkCalN") && p.clienteUid === YO.uid) cajaCalNeg($("#trkCalN"), p);
     const el = $("#trkMapa"); if (el) { M = null; M = await mapaPuntos(el, [p.negocio.ubic && { ...p.negocio.ubic, color: "#E63946", txt: "🏪" }, p.destino && { ...p.destino, color: "#1A1430", txt: "🏠" }, r && r.ubic && { ...r.ubic, color: "#FFC21A", txt: "🛵" }]); }
   });
+}
+
+/* ---------- ⭐ El cliente califica al negocio (una vez por pedido entregado) ----------
+   El servidor suma las estrellas al negocio; así nadie puede inflar su promedio. */
+async function cajaCalNeg(el, p) {
+  const ya = await DB.get("calificacionesNeg", p.codigo).catch(() => null), neg = p.negocio?.nombre || "el negocio";
+  if (ya) { el.innerHTML = `<div class="cal ok"><b>Calificaste a ${esc(neg)}</b><span class="cal-e">${"★".repeat(ya.estrellas)}${"☆".repeat(5 - ya.estrellas)}</span></div>`; return; }
+  let n = 0; const TX = ["", "Muy malo", "Malo", "Regular", "Bueno", "¡Excelente!"];
+  el.innerHTML = `<div class="cal"><b>¿Qué tal tu compra en ${esc(neg)}?</b><small class="muted">Tu calificación ayuda a otros clientes a elegir.</small>
+    <div class="cal-s" role="radiogroup" aria-label="Estrellas">${[1, 2, 3, 4, 5].map(i => `<button type="button" role="radio" aria-checked="false" aria-label="${i} estrella${i > 1 ? "s" : ""}" data-e="${i}">${icoW("star")}</button>`).join("")}</div><small class="cal-t" id="cnT"></small>
+    <textarea id="cnC" maxlength="200" rows="2" placeholder="¿Qué te gustó o qué pueden mejorar? (opcional)"></textarea><button class="btn btn-red" id="cnB" disabled>Enviar calificación</button></div>`;
+  const pinta = () => { $$("[data-e]", el).forEach(b => { b.classList.toggle("on", +b.dataset.e <= n); b.setAttribute("aria-checked", +b.dataset.e === n); }); $("#cnT", el).textContent = TX[n] || ""; };
+  $(".cal-s", el).onclick = e => { const b = e.target.closest("[data-e]"); if (!b) return; n = +b.dataset.e; pinta(); $("#cnB", el).disabled = false; };
+  $("#cnB", el).onclick = async () => { $("#cnB", el).disabled = true;
+    try {
+      const cal = { negocioId: p.negocioId, clienteUid: YO.uid, cliente: String(PERFIL.nombre || "").split(" ")[0], estrellas: n, comentario: $("#cnC", el).value.trim().slice(0, 200), creado: new Date().toISOString() };
+      await DB.set("calificacionesNeg", p.codigo, cal, false);
+      if (DEMO) { const ng = await DB.get("negocios", p.negocioId); if (ng) await DB.set("negocios", p.negocioId, { estrellasSum: (+ng.estrellasSum || 0) + n, estrellasN: (+ng.estrellasN || 0) + 1 }); }   // en Firebase lo suma el servidor
+      toast("¡Gracias por calificar! ⭐"); cajaCalNeg(el, p);
+    } catch (x) { console.error(x); toast("No se pudo enviar: " + (x.code || x.message), true); $("#cnB", el).disabled = false; } };
 }
 
 /* =========== MIS PEDIDOS =========== */
