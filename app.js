@@ -531,12 +531,47 @@ async function paginaPerfil() {
     <section class="pf-sec" id="pfDirs"><h3>Mis direcciones</h3>${ds.map((d, i) => fila("pin", esc(d.etiqueta || "Dirección"), esc(d.texto) + (d.referencia ? " · " + esc(d.referencia) : ""), `data-ed="${i}"`)).join("")}${fila("plus", "Agregar dirección", "", 'id="pfDir"', "pf-add")}</section>
     ${["pendiente", "bloqueado", "ios"].includes(estadoAvisos()) ? `<section class="pf-sec"><h3>Avisos</h3>${fila("clock", "Activar avisos al celular", "Te avisamos cuando tu pedido sale y llega", 'id="pfAv"')}</section>` : ""}
     <section class="pf-sec"><h3>Mi actividad</h3>${fila("receipt", "Mis pedidos", "Sigue y repite tus pedidos", 'href="mis-pedidos?t=pedidos"')}${fila("box", "Enviar un paquete", "Tú pones el precio", 'href="enviar"')}</section>
-    ${extra}<button class="btn btn-light btn-lg pf-out" id="pfSalir">${icoW("logout")} Cerrar sesión</button>`;
-  $("#pfEd").onclick = () => formPerfil(paginaPerfil, "Tus datos"); $("#pfDir").onclick = () => editarDireccion(null, paginaPerfil); $("#pfSalir").onclick = () => Sesion.salir();
+    ${extra}<button class="btn btn-light btn-lg pf-out" id="pfSalir">${icoW("logout")} Cerrar sesión</button><button type="button" class="pf-del" id="pfDel">Eliminar mi cuenta</button>`;
+  $("#pfEd").onclick = () => formPerfil(paginaPerfil, "Tus datos"); $("#pfDir").onclick = () => editarDireccion(null, paginaPerfil); $("#pfSalir").onclick = () => Sesion.salir(); $("#pfDel").onclick = eliminarCuenta;
   $("#pfInst")?.addEventListener("click", instalarApp);
   $("#pfAv")?.addEventListener("click", async () => { const r = await activarAvisos("web"); toast(textoAvisos(r), r !== "ok"); paginaPerfil(); });
   box.onclick = e => { const b = e.target.closest("[data-ed]"); if (b) editarDireccion(+b.dataset.ed, paginaPerfil); };
 }
+
+/* ---------- 🗑️ Eliminar mi cuenta (lo pide Google Play) ---------- */
+function eliminarCuenta() {
+  if (!YO) return pedirEntrar("Entra con tu cuenta para poder eliminarla.");
+  const h = hoja(`<button class="x" data-cerrar aria-label="Cerrar">×</button><div class="ck del-c"><h2>Eliminar mi cuenta</h2>
+    <p>Se borrarán <b>para siempre</b> tu perfil, tu celular, tus direcciones guardadas y tus avisos. Tus pedidos anteriores quedarán <b>sin tu nombre ni celular</b> (solo guardamos el registro de la venta por ley).</p>
+    <p class="muted">Si tienes un pedido o envío en curso, espera a que termine. Esto no se puede deshacer.</p>
+    <label>Escribe ELIMINAR para confirmar<input id="delTx" autocomplete="off" autocapitalize="characters" placeholder="ELIMINAR"></label>
+    <p class="err" id="delErr" role="alert"></p>
+    <button type="button" class="btn btn-red btn-lg" id="delOk" disabled>Eliminar mi cuenta para siempre</button><button type="button" class="btn btn-light btn-lg" data-cerrar>Cancelar</button></div>`);
+  const tx = $("#delTx", h), ok = $("#delOk", h);
+  tx.oninput = () => ok.disabled = tx.value.trim().toUpperCase() !== "ELIMINAR";
+  ok.onclick = async () => {
+    ok.disabled = true; ok.textContent = "Eliminando…"; $("#delErr", h).textContent = "";
+    try {
+      await llamarServidor("eliminarCuenta", { confirmar: "ELIMINAR" });
+      ["am_dir", "am_carrito", "am_fcm_ok", "am_fcm_tok", "am_fcm_app"].forEach(k => store.del(k));
+      sessionStorage.setItem("am_cuenta_borrada", "1");
+      if (DEMO) { store.del("am_sesion"); location.href = "./"; return; }
+      const { au, auth } = await fb(); await au.signOut(auth).catch(() => {}); location.href = "./";
+    } catch (e) {
+      $("#delErr", h).textContent = e.code === "functions/failed-precondition" || e.code === "functions/invalid-argument" ? e.message : "No se pudo eliminar ahora. Revisa tu conexión e inténtalo de nuevo, o escríbenos por WhatsApp.";
+      ok.disabled = false; ok.textContent = "Eliminar mi cuenta para siempre";
+    }
+  };
+}
+// Página pública apamuy.app/eliminar-cuenta (el enlace que pide Google Play)
+function paginaEliminar() {
+  const box = $("#delBox"); if (!box) return;
+  box.innerHTML = YO ? `<p>Entraste como <b>${esc(YO.email)}</b>.</p><button class="btn btn-red btn-lg" id="delIr">Eliminar mi cuenta</button>`
+    : `<p>Primero entra con la misma cuenta de Google que usas en Apamuy.</p><button class="btn btn-google btn-lg" id="delIr">Entrar con Google</button>`;
+  $("#delIr").onclick = () => YO ? eliminarCuenta() : pedirEntrar("Entra con tu cuenta para poder eliminarla.");
+  const sop = $("#delSop"); if (sop && CONF.soporte) { sop.href = wa(CONF.soporte, "Hola Apamuy, quiero eliminar mi cuenta. Mi correo es: "); sop.hidden = false; }
+}
+if (sessionStorage.getItem("am_cuenta_borrada")) { sessionStorage.removeItem("am_cuenta_borrada"); setTimeout(() => toast("Tu cuenta fue eliminada. Gracias por usar Apamuy."), 600); }
 
 /* ---------- App instalable ---------- */
 let instalar = null;
@@ -566,7 +601,7 @@ if (/iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone) $$(".js-i
     if (u && !PERFIL) PERFIL = { nombre: u.nombre, email: u.email, direcciones: [] };
     const dirNueva = u && !DIR.get() && PERFIL.direcciones?.length; if (dirNueva) store.set("am_dir", PERFIL.direcciones[0]);
     if (u && window.Notification?.permission === "granted") activarAvisos("web", true);
-    encabezado(); if (dirNueva && portada) portada.then(() => window.recalcular && window.recalcular()); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEnviar(); paginaEnvio(); paginaRastreo(); paginaLibro(); window.paginaBuscar && paginaBuscar();
+    encabezado(); if (dirNueva && portada) portada.then(() => window.recalcular && window.recalcular()); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEliminar(); paginaEnviar(); paginaEnvio(); paginaRastreo(); paginaLibro(); window.paginaBuscar && paginaBuscar();
     $$(".js-reparto").forEach(a => a.href = AP.reparto || "https://reparto.apamuy.app");
     $$(".js-anio").forEach(e => e.textContent = new Date().getFullYear());
     if (u && store.get("am_seguir", 0)) { store.del("am_seguir"); if (CART.cuenta()) abrirCarrito(); }

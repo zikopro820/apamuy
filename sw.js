@@ -1,7 +1,7 @@
 /* App instalable: guarda la "cáscara" de la web para que abra rápido.
    La carta y los pedidos siempre se piden en vivo (Firebase). */
-const V = "apamuy-v21";
-const CASCARA = ["./", "pedido", "mis-pedidos", "negocio", "perfil", "enviar", "envio", "buscar", "rastreo", "privacidad", "terminos", "cookies", "libro-reclamaciones", "legal.js", "styles.css", "app.js", "envios.js", "buscar.js", "nucleo.js", "pago.js", "demo.js", "semilla.js", "ubigeo.js", "firebase-config.js", "favicon.svg", "img/icon-192.png", "manifest.webmanifest"];
+const V = "apamuy-v22";
+const CASCARA = ["./", "pedido", "mis-pedidos", "negocio", "perfil", "enviar", "envio", "buscar", "rastreo", "privacidad", "eliminar-cuenta", "terminos", "cookies", "libro-reclamaciones", "legal.js", "styles.css", "app.js", "envios.js", "buscar.js", "nucleo.js", "pago.js", "demo.js", "semilla.js", "ubigeo.js", "firebase-config.js", "favicon.svg", "img/icon-192.png", "manifest.webmanifest"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(CASCARA)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {

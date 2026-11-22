@@ -440,3 +440,8 @@ button.ck-row:hover { border-color: #d9cfc0; background: #fffdf9; }
 .promos { scroll-padding-inline: 16px; } .promos::after { content: ""; flex: 0 0 6px; }
 @media (min-width: 900px) { .promos { scroll-padding-inline: 0; } }
 .pasos-ub { padding-left: 20px; display: grid; gap: 6px; margin: 10px 0; }
+
+/* Eliminar mi cuenta */
+.pf-del { display: block; margin: 14px auto 6px; background: none; border: 0; color: #8a8196; font-size: .85rem; text-decoration: underline; cursor: pointer; padding: 8px; }
+.del-c .btn { width: 100%; margin-top: 8px; } .del-c p { margin: 0 0 10px; }
+.del-pg ol li { margin-bottom: 6px; } .del-pg .del-box { background: #fff; border-radius: 18px; padding: 18px; box-shadow: 0 4px 18px rgba(30,20,50,.06); margin: 16px 0; } .del-pg .del-box .btn { width: 100%; }

@@ -4,11 +4,11 @@
    y en cada hoja del Libro de Reclamaciones).
    ========================================================= */
 window.EMPRESA = {
-  razonSocial: "Wilson Tapia Apaza",
-  ruc: "10484978129",
-  domicilio: "sicuani, Cusco, Perú",
-  correo: "zikoproziko7@gmail.com.com]",          // correo para reclamos y datos personales
-  telefono: "984713695",                               // opcional
+  razonSocial: "[RAZÓN SOCIAL O NOMBRE DEL TITULAR]",
+  ruc: "[RUC]",
+  domicilio: "[DIRECCIÓN FISCAL], Cusco, Perú",
+  correo: "[correo@de-atencion.com]",          // correo para reclamos y datos personales
+  telefono: "",                               // opcional
   bancoDatos: "",                             // N° de inscripción del banco de datos ante la ANPD (cuando lo tengas)
   actualizado: "20 de noviembre de 2026"
 };
