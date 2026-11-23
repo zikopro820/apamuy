@@ -60,8 +60,8 @@ function formBusqueda(box, tipo) {
   F.addEventListener("click", e => { const b = e.target.closest("[data-pb]"); if (!b) return; problema = b.dataset.pb; $$("[data-pb]", F).forEach(x => x.classList.toggle("on", x === b)); guardar(); });
   $("#bqFoto")?.addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; foto = await redimensionar(f, 700, .72); $("#bqFv").innerHTML = `<img src="${foto}" alt=""><button type="button" class="x" aria-label="Quitar foto">×</button>`; $("#bqFv .x").onclick = () => { foto = ""; $("#bqFv").innerHTML = ""; }; });
   if (tipo === "auxilio") {
-    mapaPin($("#bqM"), null, q => ubic = q).then(m => { MP = m; miUbicacion().then(p => { MP && MP.mover(p); }).catch(() => {}); });
-    $("#bqGps").onclick = () => { toast("Buscando tu ubicación…"); miUbicacion().then(p => MP && MP.mover(p)).catch(avisarUbicacion); };
+    mapaPin($("#bqM"), null, q => ubic = q).then(m => { MP = m; ubicar(p => { MP && MP.mover(p); }, true); });
+    $("#bqGps").onclick = () => { toast("Buscando tu ubicación…"); ubicar(p => MP && MP.mover(p)); };
   }
   F.onsubmit = e => { e.preventDefault(); const err = $("#bqErr"); err.textContent = "";
     const texto = $("#bqTx").value.trim();

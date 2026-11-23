@@ -119,8 +119,8 @@ async function paginaEnviar() {
   let MO = null, MD = null;
   mapaPin($("#mO"), E.origen, q => { E.origen = { ...(E.origen || {}), ...q }; calc(); }, { txt: "A", color: "#E63946" }).then(m => MO = m);
   mapaPin($("#mD"), E.destino, q => { E.destino = { ...(E.destino || {}), ...q }; calc(); }, { txt: "B", color: "#1A1430" }).then(m => MD = m);
-  if (!E.origen) miUbicacion().then(q => { MO?.mover(q); }).catch(() => {});
-  $("#gpsO").onclick = () => { toast("Buscando tu ubicación…"); miUbicacion().then(q => { MO?.mover(q); toast(q.prec > 150 ? "Ubicación aproximada: mueve el pin al punto exacto" : "Ubicación encontrada"); }).catch(avisarUbicacion); };
+  if (!E.origen) ubicar(q => { MO?.mover(q); }, true);
+  $("#gpsO").onclick = () => { toast("Buscando tu ubicación…"); ubicar(q => { MO?.mover(q); toast(q.prec > 150 ? "Ubicación aproximada: mueve el pin al punto exacto" : "Ubicación encontrada"); }); };
   box.addEventListener("click", e => { const b = e.target.closest("[data-od]"); if (!b) return; const d = ds[+b.dataset.od]; E.origen = { ...d }; $("#oTx").value = d.texto; $("#oRf").value = d.referencia || ""; MO?.mover(d); });
   F.addEventListener("click", e => { const b = e.target.closest("[data-st]"); if (!b) return; E.tocado = true; E.precio = Math.max(TE().minimo, r2((+$("#ePr").value || 0) + +b.dataset.st)); $("#ePr").value = E.precio; guardarBor(); });
   $("#ePr").oninput = e => { E.tocado = true; E.precio = +e.target.value || 0; guardarBor(); };
