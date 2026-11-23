@@ -445,3 +445,12 @@ button.ck-row:hover { border-color: #d9cfc0; background: #fffdf9; }
 .pf-del { display: block; margin: 14px auto 6px; background: none; border: 0; color: #8a8196; font-size: .85rem; text-decoration: underline; cursor: pointer; padding: 8px; }
 .del-c .btn { width: 100%; margin-top: 8px; } .del-c p { margin: 0 0 10px; }
 .del-pg ol li { margin-bottom: 6px; } .del-pg .del-box { background: #fff; border-radius: 18px; padding: 18px; box-shadow: 0 4px 18px rgba(30,20,50,.06); margin: 16px 0; } .del-pg .del-box .btn { width: 100%; }
+
+/* Aviso de ubicación simple */
+.ubic-h { text-align: center; } .ubic-h .ub-ico { font-size: 2.6rem; line-height: 1; margin: 4px 0 6px; }
+.ubic-h h2 { margin: 0 0 6px; } .ubic-h .ub-txt { margin: 0 auto 16px; max-width: 30ch; color: #4b4458; }
+.ubic-h .btn { width: 100%; margin-top: 8px; }
+.ub-ayuda { text-align: left; margin-top: 14px; font-size: .9rem; } .ub-ayuda summary { cursor: pointer; color: #8a8196; text-align: center; list-style: none; text-decoration: underline; padding: 6px; }
+.ub-ayuda summary::-webkit-details-marker { display: none; } .ub-ayuda .pasos-ub { margin: 8px 0 4px; padding-left: 20px; } .ub-ayuda .pasos-ub li { margin-bottom: 6px; }
+
+.ubic-h .ub-nota { margin: 14px 0 0; font-size: .9rem; color: #6b6478; }
