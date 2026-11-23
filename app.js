@@ -326,7 +326,7 @@ function abrirCarrito() {
 /* ---------- 🧾 Boleta o factura (la emite el NEGOCIO con su RUC; Apamuy solo le pasa los datos) ----------
    Boleta: DNI opcional (obligatorio desde S/ 700, como pide SUNAT). Factura: RUC → razón social y dirección solas. */
 function Comprobante(box, total) {
-  const g = store.get("am_comp", {}); let tipo = g.tipo === "factura" ? "factura" : "boleta", V = { ...g }, abierto = !!g.tipo;
+  const g = store.get("am_comp", {}) || {}; let tipo = g.tipo === "factura" ? "factura" : "boleta", V = { ...g }, abierto = !!g.tipo;
   const pintar = () => {
     box.innerHTML = !abierto ? `<button type="button" class="ck-row" id="cmpAb">${icoW("receipt")}<div><b>Boleta con DNI o factura</b><small>Opcional · la emite el negocio</small></div><span>Agregar</span></button>`
       : `<div class="cmp"><div class="cmp-h"><b>¿Qué comprobante necesitas?</b><button type="button" class="btn-link" id="cmpX">Quitar</button></div>
@@ -390,10 +390,13 @@ async function checkout() {
     <section class="ck-s"><h4>${icoW("wallet")} Pago <small>· directo a ${esc(neg.nombre)}</small></h4><div id="pagoBox"></div></section>
     <div class="ck-foot"><p class="err" id="ckErr" role="alert"></p><div class="ck-fr"><div class="ck-tot"><small>Total a pagar</small><b id="ckTot"></b></div><button class="btn btn-red btn-lg" id="ckBtn">Hacer pedido</button></div>
       <p class="ck-seg">${icoW("lock")} Pagas directo a ${esc(neg.nombre)} con Yape, Plin o efectivo.</p></div></form>`, "ck-h");
+  // Si algo falla al armar la pantalla, se muestra el motivo (para poder corregirlo) en vez de quedar en blanco
+  const fallo = m => { const e2 = $("#ckErr", h); if (e2 && document.body.contains(h)) e2.textContent = `No se pudo cargar el resumen. Cierra y vuelve a abrir Apamuy. (${String(m).slice(0, 90)})`; };
+  window.onerror = (m, src, ln) => fallo(`${m} · ${String(src || "").split("/").pop()}:${ln}`); window.onunhandledrejection = ev => fallo(ev.reason?.stack?.split("\n").slice(0, 2).join(" ") || ev.reason);
   pintarDir();
   const pago = Pago($("#pagoBox", h), neg, { contraEntrega: neg.contraEntrega !== false, onChange: () => resumen() });
-  const comp = Comprobante($("#ckComp", h), () => CART.subtotal() + Math.max(0, envio() || 0));
   const km = () => entrega === "delivery" ? distanciaKm(neg.ubic, DIR.get()) : 0, envio = () => entrega === "delivery" ? costoNeg(neg, km()) : 0;
+  const comp = Comprobante($("#ckComp", h), () => CART.subtotal() + Math.max(0, envio() || 0));
   const efectivo = () => pago.estado.met === "Efectivo";
   function resumen() {
     const e = envio(), sub = CART.subtotal(), tot = r2(sub + Math.max(0, e || 0));
@@ -407,7 +410,7 @@ async function checkout() {
   h.addEventListener("click", e => { const b = e.target.closest("[data-e]"); if (b) { entrega = b.dataset.e; modo(); } });
   $("#ckDir", h).onclick = () => elegirDireccion(checkout);
   $("#ckYo", h).onclick = () => formPerfil(checkout, "Tus datos");
-  await pago.pintar(); modo();
+  try { await pago.pintar(); modo(); } catch (x) { console.error(x); $("#ckErr", h).textContent = `No se pudo cargar el resumen. Cierra y vuelve a abrir Apamuy. (${String(x.message || x).slice(0, 80)})`; }
   if (entrega === "delivery" && !DIR.get()) elegirDireccion(checkout);
   $("#ckF", h).onsubmit = async e => {
     e.preventDefault(); const err = $("#ckErr", h); err.textContent = "";
