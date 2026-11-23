@@ -435,47 +435,59 @@ async function checkout() {
 }
 
 /* =========== SEGUIMIENTO =========== */
-const PASOS = { servicio: [["nuevo", "Solicitud enviada", "📝"], ["cocina", "Aceptado", "🔧"], ["entregado", "Terminado", "✅"]], delivery: [["nuevo", "Recibido", "📝"], ["cocina", "Preparando", "🔥"], ["camino", "En camino", "🛵"], ["entregado", "Entregado", "✅"]],
-  recojo: [["nuevo", "Recibido", "📝"], ["cocina", "Preparando", "🔥"], ["listo", "Listo para recoger", "🛍️"], ["entregado", "Entregado", "✅"]] };
+const PASOS = { servicio: [["nuevo", "Enviada", "receipt"], ["cocina", "Aceptado", "check"], ["entregado", "Terminado", "flag"]], delivery: [["nuevo", "Recibido", "receipt"], ["cocina", "Preparando", "clock"], ["camino", "En camino", "bike"], ["entregado", "Entregado", "home"]],
+  recojo: [["nuevo", "Recibido", "receipt"], ["cocina", "Preparando", "clock"], ["listo", "Listo", "bag"], ["entregado", "Entregado", "check"]] };
 // Comida → «Preparando… ¡Buen provecho!». Ferretería, repuestos, farmacia… → «Alistando… ¡Gracias por tu compra!»
-const pasosDe = (p, comida) => (PASOS[p.entrega] || PASOS.delivery).map(([k, t, ic]) => k === "cocina" && !comida && p.entrega !== "servicio" ? [k, "Alistando", "📦"] : [k, t, ic]);
+const pasosDe = (p, comida) => (PASOS[p.entrega] || PASOS.delivery).map(([k, t, ic]) => k === "cocina" && !comida && p.entrega !== "servicio" ? [k, "Alistando", "box"] : [k, t, ic]);
 const ORDEN = { "por-validar": 0, nuevo: 0, cocina: 1, listo: 2, camino: 2, entregado: 3 };
 async function paginaPedido() {
   const box = $("#pedidoBox"); if (!box) return; const c = params.get("c");
-  if (!c) { box.innerHTML = `<div class="vacio">🔎<h2>Sigue tu pedido</h2><a class="btn btn-red" href="mis-pedidos">Ver mis pedidos</a></div>`; return; }
-  if (!YO) { box.innerHTML = `<div class="vacio">🔒<h2>Entra para ver tu pedido</h2><button class="btn btn-red js-entrar2">Entrar con Google</button></div>`; $(".js-entrar2").onclick = () => pedirEntrar("Entra con la misma cuenta con la que pediste."); return; }
-  let M = null, ult = "";
+  if (!c) { box.innerHTML = `<div class="vacio">${icoW("receipt", "xl")}<h2>Sigue tu pedido</h2><a class="btn btn-red" href="mis-pedidos">Ver mis pedidos</a></div>`; return; }
+  if (!YO) { box.innerHTML = `<div class="vacio">${icoW("lock", "xl")}<h2>Entra para ver tu pedido</h2><button class="btn btn-red js-entrar2">Entrar con Google</button></div>`; $(".js-entrar2").onclick = () => pedirEntrar("Entra con la misma cuenta con la que pediste."); return; }
+  box.innerHTML = `<div id="trkMapaW"></div><div id="trkCont"></div>`;
+  let M = null, ult = "", firmaH = "", firmaM = "";
   DB.escuchar("pedidos", c, async p => {
-    if (!p) { box.innerHTML = `<div class="vacio">😕<h2>No encontramos el pedido ${esc(c)}</h2><a href="mis-pedidos">Ver mis pedidos</a></div>`; return; }
+    if (!p) { box.innerHTML = `<div class="vacio">${icoW("receipt", "xl")}<h2>No encontramos el pedido ${esc(c)}</h2><a href="mis-pedidos">Ver mis pedidos</a></div>`; return; }
     const firma = p.estado + (p.tiempo || "") + (p.repartidor ? p.repartidor.nombre : ""); if (ult && ult !== firma) { navigator.vibrate?.(250); toast("Tu pedido se actualizó"); } ult = firma;
     const comida = (p.negocio?.rubro || "") === "comida" || (!p.negocio?.rubro && (p.items || []).some(x => x.extras || /plato|menú|combo|pollo|porción/i.test(x.n || "")));
     const pasos = pasosDe(p, comida), idx = p.entrega === "servicio" ? ({ nuevo: 0, cocina: 1, entregado: 2 }[p.estado] ?? -1) : (ORDEN[p.estado] ?? -1), malo = ["rechazado", "anulado"].includes(p.estado), r = p.repartidor || null;
-    const titulo = p.entrega === "servicio" ? ({ nuevo: "Enviamos tu solicitud al taller", cocina: "El taller aceptó tu solicitud 🔧", entregado: "Servicio terminado" }[p.estado] || (p.estado === "anulado" ? "El taller no pudo atenderte" : p.estado)) : { "por-validar": "Estamos validando tu pago", nuevo: "¡El negocio recibió tu pedido!", cocina: comida ? "Tu pedido se está preparando 🔥" : "Están alistando tu pedido 📦", listo: p.entrega === "recojo" ? "¡Listo para recoger!" : r ? "¡Listo! Tu repartidor va a recogerlo" : "Listo, esperando al repartidor", camino: "Tu pedido va en camino 🛵", entregado: comida ? "¡Entregado! Buen provecho 😋" : "¡Entregado! Gracias por tu compra 🙌", rechazado: "No se pudo validar tu pago", anulado: "Tu pedido fue anulado" }[p.estado] || p.estado;
-    box.innerHTML = `${params.get("nuevo") ? `<div class="ok-top">✓ Pedido enviado a <b>${esc(p.negocio.nombre)}</b> · código <b>${esc(p.codigo)}</b></div>` : ""}
-      <div class="trk"><small>${esc(p.negocio.nombre)} · ${fmtFH(p.creado)}</small><h1>${esc(titulo)}</h1>
-        ${p.estado === "cocina" && p.tiempo ? `<p class="eta">⏱ ${comida ? "Listo" : "Listo para entregar"} en aprox. <b>${esc(p.tiempo)} min</b></p>` : ""}
-        ${r ? `<p class="rep-est">${p.estado === "camino" ? "🛵 Tu repartidor va hacia ti" : p.estado === "entregado" ? "Te lo llevó" : "🛵 Tu repartidor va al negocio por tu pedido"}</p>${tarjetaRep(r, { contacto: p.estado !== "entregado" })}`
-          : p.entrega === "delivery" && p.oferta && ["cocina", "listo"].includes(p.estado) ? `<p class="eta">🔎 Buscando un repartidor cerca…</p>` : ""}
-        ${malo ? `<div class="bad">${p.motivo ? esc(p.motivo) + ". " : ""}Escríbele al negocio para ayudarte.</div>` : `<ol class="pasos">${pasos.map(([k, t, ic], i) => `<li class="${i < idx || p.estado === "entregado" ? "done" : i === idx ? "now" : ""}"><i>${ic}</i><span>${t}</span></li>`).join("")}</ol>`}</div>
-      ${p.entrega === "delivery" && !malo && p.estado !== "entregado" ? `<div class="mapa trk-m" id="trkMapa"></div><p class="muted sm">🏪 negocio · 🏠 tu dirección${r && r.ubic ? " · 🛵 repartidor en vivo" : ""}</p>
-        <button class="btn btn-dark btn-lg" id="trkShare">${icoW("share")} Compartir seguimiento</button>` : ""}
+    const titulo = p.entrega === "servicio" ? ({ nuevo: "Enviamos tu solicitud al taller", cocina: "El taller aceptó tu solicitud", entregado: "Servicio terminado" }[p.estado] || (p.estado === "anulado" ? "El taller no pudo atenderte" : p.estado))
+      : { "por-validar": "Estamos validando tu pago", nuevo: "El negocio recibió tu pedido", cocina: comida ? "Tu pedido se está preparando" : "Están alistando tu pedido", listo: p.entrega === "recojo" ? "Tu pedido está listo para recoger" : r ? "Tu repartidor va a recogerlo" : "Listo, buscando repartidor", camino: "Tu pedido va en camino", entregado: comida ? "Pedido entregado. ¡Buen provecho!" : "Pedido entregado. ¡Gracias por tu compra!", rechazado: "No se pudo validar tu pago", anulado: "Tu pedido fue anulado" }[p.estado] || p.estado;
+    const activo = p.entrega === "delivery" && !malo && p.estado !== "entregado";
+    const kmRep = r?.ubic ? distanciaKm(r.ubic, p.estado === "camino" ? p.destino : p.negocio.ubic || p.destino) : null;
+    const sub = malo ? "" : p.estado === "cocina" && p.tiempo ? `${comida ? "Listo" : "Listo para entregar"} en aprox. ${esc(p.tiempo)} min`
+      : r && p.estado === "camino" ? "Tu repartidor va hacia tu dirección" : r && p.estado !== "entregado" ? "Tu repartidor va al negocio por tu pedido"
+      : p.entrega === "delivery" && p.oferta && ["cocina", "listo"].includes(p.estado) && !r ? "Buscando un repartidor cerca del negocio" : "";
+    const chip = p.estado === "camino" && kmRep != null ? `<span class="sg-chip">${icoW("clock")} Llega en ~${minDe(kmRep)} min</span>` : "";
+    const html = `${params.get("nuevo") ? `<div class="sg-ok">${icoW("check")}<span>Pedido enviado a <b>${esc(p.negocio.nombre)}</b> · código <b>${esc(p.codigo)}</b></span></div>` : ""}
+      <section class="sg-card sg-est"><div class="sg-o"><span>${esc(p.negocio.nombre)} · ${fmtFH(p.creado)}</span><span class="mono">${esc(p.codigo)}</span></div>
+        <h1 class="sg-h">${esc(titulo)}</h1>${sub ? `<p class="sg-sub">${sub}</p>` : ""}${chip}
+        ${malo ? `<div class="sg-bad">${p.motivo ? esc(p.motivo) + ". " : ""}Escríbele al negocio para ayudarte.</div>` : pasosHTML(pasos, idx, p.estado === "entregado")}</section>
+      ${r ? `<section class="sg-card"><h3 class="sg-l">${p.estado === "entregado" ? "Te lo llevó" : "Tu repartidor"}</h3>${tarjetaRep(r, { contacto: p.estado !== "entregado" })}</section>` : ""}
+      ${activo ? `<button class="btn btn-light btn-lg sg-share" id="trkShare">${icoW("share")} Compartir seguimiento</button>` : ""}
       ${p.estado === "entregado" ? `<div id="trkCalN"></div>` : ""}${p.estado === "entregado" && r ? `<div id="trkCal"></div>` : ""}${!["entregado", "anulado", "rechazado"].includes(p.estado) ? `<div id="trkAv"></div>` : ""}
-      <div class="det"><h3>Tu pedido</h3>${(p.items || []).map(x => `<div class="ci"><div><b>${x.cant}× ${esc(x.n)}</b>${detItem(x).map(d => `<small>${esc(d)}</small>`).join("")}</div><span>${S(x.precio * x.cant)}</span></div>`).join("")}
+      <section class="sg-card"><h3 class="sg-l">Tu pedido</h3>${(p.items || []).map(x => `<div class="ci"><div><b>${x.cant}× ${esc(x.n)}</b>${detItem(x).map(d => `<small>${esc(d)}</small>`).join("")}</div><span>${S(x.precio * x.cant)}</span></div>`).join("")}
         <div class="resumen"><div><span>${comida ? "Comida" : "Productos"}</span><b>${S(p.subtotal)}</b></div>${p.envio ? `<div><span>Delivery</span><b>${S(p.envio)}</b></div>` : ""}<div class="t"><span>Total</span><b>${S(p.total)}</b></div></div>
-        <p class="muted">${p.entrega === "delivery" ? `🏠 ${esc(p.destino?.texto || "")}${p.destino?.referencia ? " · " + esc(p.destino.referencia) : ""}` : `🏪 Recojo en ${esc(p.negocio.direccion || "")}`}<br>💳 ${esc(p.pago)}${p.pagaCon ? ` · pagas con ${S(p.pagaCon)} (vuelto ${S(p.pagaCon - p.total)})` : ""}</p></div>
-      ${p.comprobante ? `<div class="det cmp-d"><h3>🧾 ${p.comprobante.tipo === "factura" ? "Factura" : "Boleta"}</h3><p>${p.comprobante.doc ? `${p.comprobante.tipo === "factura" ? "RUC" : "DNI"} ${esc(p.comprobante.doc)} · ${esc(p.comprobante.nombre)}` : "Boleta simple"}</p>
-        ${p.comprobanteEmitido ? `<p class="ok-t">✅ Emitida: <b>${esc(p.comprobanteEmitido.numero)}</b></p>${p.comprobanteEmitido.url ? `<a class="btn btn-light btn-sm" href="${esc(p.comprobanteEmitido.url)}" target="_blank" rel="noopener">📄 Ver / descargar</a>` : ""}` : `<p class="muted">${esc(p.negocio?.nombre || "El negocio")} te la enviará aquí cuando la emita.</p>`}</div>` : ""}
-      ${p.servicio ? `<div class="det"><h3>Tu solicitud</h3><p>${esc(p.servicio.detalle)}</p><p class="muted">${p.servicio.auxilio ? `🚨 Auxilio mecánico${p.servicio.llegaMin ? ` · llega en ~${p.servicio.llegaMin} min` : ""}` : p.servicio.lugar === "domicilio" ? "🏠 A domicilio" : "🔧 En el taller"}${p.servicio.fecha ? " · " + fmtFH(p.servicio.fecha) : ""}</p>${p.negocio.telefono ? `<a class="btn btn-red" href="tel:${esc(p.negocio.telefono)}">📞 Llamar al taller</a>` : ""}</div>` : ""}
-      <div class="acts">${p.negocio.whatsapp ? `<a class="btn btn-wa" target="_blank" rel="noopener" href="${esc(wa(p.negocio.whatsapp, `Hola ${p.negocio.nombre} 👋 consulto por mi pedido ${p.codigo} de Apamuy.`))}">Escribir a ${esc(p.negocio.nombre)}</a>` : ""}<a class="btn btn-light" href="./">Volver al inicio</a></div>`;
+        <dl class="sg-dl"><dt>${icoW(p.entrega === "delivery" ? "home" : "store")}</dt><dd>${p.entrega === "delivery" ? `${esc(p.destino?.texto || "")}${p.destino?.referencia ? " · " + esc(p.destino.referencia) : ""}` : `Recojo en ${esc(p.negocio.direccion || "")}`}</dd>
+          <dt>${icoW("wallet")}</dt><dd>${esc(p.pago)}${p.pagaCon ? ` · pagas con ${S(p.pagaCon)} (vuelto ${S(p.pagaCon - p.total)})` : ""}</dd></dl></section>
+      ${p.comprobante ? `<section class="sg-card"><h3 class="sg-l">${p.comprobante.tipo === "factura" ? "Factura" : "Boleta"}</h3><p>${p.comprobante.doc ? `${p.comprobante.tipo === "factura" ? "RUC" : "DNI"} ${esc(p.comprobante.doc)} · ${esc(p.comprobante.nombre)}` : "Boleta simple"}</p>
+        ${p.comprobanteEmitido ? `<p class="ok-t">Emitida: <b>${esc(p.comprobanteEmitido.numero)}</b></p>${p.comprobanteEmitido.url ? `<a class="btn btn-light btn-sm" href="${esc(p.comprobanteEmitido.url)}" target="_blank" rel="noopener">${icoW("doc")} Ver / descargar</a>` : ""}` : `<p class="muted">${esc(p.negocio?.nombre || "El negocio")} te la enviará aquí cuando la emita.</p>`}</section>` : ""}
+      ${p.servicio ? `<section class="sg-card"><h3 class="sg-l">Tu solicitud</h3><p>${esc(p.servicio.detalle)}</p><p class="muted">${p.servicio.auxilio ? `Auxilio mecánico${p.servicio.llegaMin ? ` · llega en ~${p.servicio.llegaMin} min` : ""}` : p.servicio.lugar === "domicilio" ? "A domicilio" : "En el taller"}${p.servicio.fecha ? " · " + fmtFH(p.servicio.fecha) : ""}</p>${p.negocio.telefono ? `<a class="btn btn-red" href="tel:${esc(p.negocio.telefono)}">${icoW("phone")} Llamar al taller</a>` : ""}</section>` : ""}
+      <div class="acts sg-acts">${p.negocio.whatsapp ? `<a class="btn btn-light" target="_blank" rel="noopener" href="${esc(wa(p.negocio.whatsapp, `Hola ${p.negocio.nombre}, consulto por mi pedido ${p.codigo} de Apamuy.`))}">${icoW("wa")} Escribir al negocio</a>` : ""}<a class="btn btn-light" href="./">Volver al inicio</a></div>`;
+    // Mapa arriba: se crea una vez y solo se mueven los puntos (sin parpadeo)
+    const pts = activo ? [p.negocio.ubic && { ...p.negocio.ubic, ...pinSvg("store", "#E63946") }, p.destino && { ...p.destino, ...pinSvg("home", "#1A1430") }, r && r.ubic && { ...r.ubic, html: mkMoto(r), tam: [46, 46], ancla: [23, 23], z: 500 }] : [];
+    const W = $("#trkMapaW");
+    if (!activo) { W.innerHTML = ""; M = null; firmaM = ""; }
+    else { const fm = JSON.stringify(pts.map(x => x && [x.lat, x.lng])); if (!M) { W.innerHTML = `<div class="mapa sg-map" id="trkMapa"></div>`; firmaM = fm; M = await mapaPuntos($("#trkMapa"), pts); } else if (fm !== firmaM) { firmaM = fm; M.pintar(pts); } }
+    if (html === firmaH) return; firmaH = html; $("#trkCont").innerHTML = html;
     cajaAvisos($("#trkAv"));
     $("#trkShare")?.addEventListener("click", async () => { let tk = p.rastreo;
       if (!tk) { tk = tokenRastreo(); try { await DB.batch([{ op: "set", col: "rastreo", id: tk, merge: false, data: { uid: YO.uid, col: "pedidos", ref: p.codigo, tipo: "pedido", titulo: p.negocio.nombre, estado: p.estado, origen: p.negocio.ubic ? { ...p.negocio.ubic, texto: p.negocio.nombre } : null, destino: p.destino ? { lat: p.destino.lat, lng: p.destino.lng, texto: p.destino.texto } : null, repartidor: r ? { ...r, ubic: null } : null, ubic: r?.ubic || null, creado: new Date().toISOString() } }, { op: "set", col: "pedidos", id: p.codigo, data: { rastreo: tk } }]); } catch (x) { return toast("No se pudo crear el enlace: " + (x.code || x.message), true); } }
-      compartirRuta(tk, `🛵 Mi pedido de ${p.negocio.nombre} va en camino con Apamuy.`); });
+      compartirRuta(tk, `Mi pedido de ${p.negocio.nombre} va en camino con Apamuy.`); });
     // El enlace compartido se mantiene al día con el estado y el repartidor
     if (p.rastreo && p.clienteUid === YO.uid) { const sig = p.estado + "|" + (r ? r.uid : ""); if (store.get("am_rs_" + p.codigo, "") !== sig) { store.set("am_rs_" + p.codigo, sig); DB.set("rastreo", p.rastreo, { estado: p.estado, repartidor: r ? { ...r, ubic: null } : null }).catch(() => {}); } }
     if ($("#trkCal")) cajaCalificar($("#trkCal"), "pedidos", p.codigo, r);
     if ($("#trkCalN") && p.clienteUid === YO.uid) cajaCalNeg($("#trkCalN"), p);
-    const el = $("#trkMapa"); if (el) { M = null; M = await mapaPuntos(el, [p.negocio.ubic && { ...p.negocio.ubic, color: "#E63946", txt: "🏪" }, p.destino && { ...p.destino, color: "#1A1430", txt: "🏠" }, r && r.ubic && { ...r.ubic, color: "#FFC21A", txt: "🛵" }]); }
   });
 }
 
@@ -495,7 +507,7 @@ async function cajaCalNeg(el, p) {
       const cal = { negocioId: p.negocioId, clienteUid: YO.uid, cliente: String(PERFIL.nombre || "").split(" ")[0], estrellas: n, comentario: $("#cnC", el).value.trim().slice(0, 200), creado: new Date().toISOString() };
       await DB.set("calificacionesNeg", p.codigo, cal, false);
       if (DEMO) { const ng = await DB.get("negocios", p.negocioId); if (ng) await DB.set("negocios", p.negocioId, { estrellasSum: (+ng.estrellasSum || 0) + n, estrellasN: (+ng.estrellasN || 0) + 1 }); }   // en Firebase lo suma el servidor
-      toast("¡Gracias por calificar! ⭐"); cajaCalNeg(el, p);
+      toast("¡Gracias por calificar!"); cajaCalNeg(el, p);
     } catch (x) { console.error(x); toast("No se pudo enviar: " + (x.code || x.message), true); $("#cnB", el).disabled = false; } };
 }
 

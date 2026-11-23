@@ -362,8 +362,8 @@ async function mapaPuntos(el, puntos) {
   el.innerHTML = "";
   const m = L.map(el, { zoomControl: false }); L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(m);
   const capa = L.layerGroup().addTo(m);
-  const pintar = ps => { capa.clearLayers(); const ok = ps.filter(x => x && x.lat != null); ok.forEach(x => L.marker([x.lat, x.lng], { icon: pinIcono(L, x.color, x.txt) }).addTo(capa));
-    if (ok.length > 1) m.fitBounds(ok.map(x => [x.lat, x.lng]), { padding: [40, 40], maxZoom: 16 }); else if (ok[0]) m.setView([ok[0].lat, ok[0].lng], 16); };
+  const pintar = ps => { capa.clearLayers(); const ok = ps.filter(x => x && x.lat != null); ok.forEach(x => { const mk = L.marker([x.lat, x.lng], { icon: x.html ? L.divIcon({ className: "am-mk", html: x.html, iconSize: x.tam || [60, 60], iconAnchor: x.ancla || [30, 30] }) : pinIcono(L, x.color, x.txt), zIndexOffset: x.z || 0 }).addTo(capa); if (x.click) mk.on("click", x.click); });
+    if (ok.length > 1) m.fitBounds(ok.map(x => [x.lat, x.lng]), { padding: [50, 50], maxZoom: 16 }); else if (ok[0]) m.setView([ok[0].lat, ok[0].lng], 15); };
   pintar(puntos); setTimeout(() => m.invalidateSize(), 200);
   return { mapa: m, pintar };
 }

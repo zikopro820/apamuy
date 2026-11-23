@@ -24,6 +24,19 @@ const IW = {
   doc: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>', truck: '<path d="M1 4h14v12H1zM15 8h4l3 3v5h-7"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/>'
 };
 const icoW = (n, c = "") => `<svg class="iw ${c}" viewBox="0 0 24 24" aria-hidden="true">${IW[n] || IW.check}</svg>`;
+
+/* ---------- Seguimiento: pasos, marcadores del mapa y tiempos (sin emojis) ---------- */
+const vehNom = v => (VEHIC[v] || [, v || ""])[1];
+const minDe = km => Math.max(1, Math.round(km * 60 / 22 + 1));            // ~22 km/h en ciudad
+const pinSvg = (n, color) => ({ color, txt: `<svg viewBox="0 0 24 24" class="pin-i">${IW[n]}</svg>` });
+function pasosHTML(pasos, idx, fin) {
+  return `<ol class="sp">${pasos.map(([k, t, ic], i) => { const c = fin || i < idx ? "done" : i === idx ? "now" : ""; return `<li class="${c}"><span class="sp-i">${icoW(c === "done" ? "check" : ic)}</span><span class="sp-t">${t}</span></li>`; }).join("")}</ol>`;
+}
+const avRep = r => r?.foto ? `<img src="${esc(r.foto)}" alt="">` : `<span>${esc((r?.nombre || "?")[0].toUpperCase())}</span>`;
+const mkRep = (r, txt, sel) => `<div class="mk-rep ${sel ? "sel" : ""}">${avRep(r)}${txt ? `<b>${txt}</b>` : ""}</div>`;
+const mkMoto = r => `<div class="mk-moto">${avRep(r)}</div>`;
+const mkRadar = () => `<div class="mk-radar"><i></i><i></i><span>A</span></div>`;
+
 const TAM_I = { sobre: "doc", pequeno: "box", grande: "truck" };
 
 /* ---------- Barra inferior con íconos ---------- */
@@ -37,11 +50,11 @@ function pintarTabbar() {
 /* ---------- Tarjeta del repartidor (foto, estrellas, vehículo y placa) ---------- */
 function tarjetaRep(r, opts = {}) {
   if (!r) return "";
-  const prom = r.estrellas ?? null, veh = [vehTxt(r.vehiculo), r.marca, r.color].filter(Boolean).join(" · ");
-  return `<div class="repc ${opts.claro ? "claro" : ""}">${r.foto ? `<img src="${esc(r.foto)}" alt="Foto de ${esc(r.nombre)}">` : `<span class="repc-i">${esc((r.nombre || "?")[0])}</span>`}
-    <div class="repc-t"><b>${esc(r.nombre)}</b><span class="repc-s">${prom ? `<em>★ ${(+prom).toFixed(1)}</em>` : `<em class="nuevo">Nuevo</em>`}${r.entregas ? ` · ${r.entregas} entregas` : ""}</span><small>${esc(veh)}</small></div>
+  const prom = r.estrellas ?? null, veh = [vehNom(r.vehiculo), r.marca, r.color].filter(Boolean).join(" · ");
+  return `<div class="repc"><span class="repc-f">${avRep(r)}</span>
+    <div class="repc-t"><b>${esc(r.nombre)}</b><span class="repc-s">${prom ? `<em>${icoW("star")}${(+prom).toFixed(1)}</em>` : `<em class="nuevo">Nuevo</em>`}${r.entregas ? `<span>${r.entregas} entregas</span>` : ""}</span><small>${esc(veh)}</small></div>
     ${r.placa ? `<span class="placa">${esc(r.placa)}</span>` : ""}</div>
-    ${opts.contacto && r.celular ? `<div class="repc-b"><a class="btn btn-light" href="tel:${esc(r.celular)}">${icoW("phone")} Llamar</a><a class="btn btn-wa" href="${esc(wa(r.celular))}" target="_blank" rel="noopener">${icoW("wa")} WhatsApp</a></div>` : ""}`;
+    ${opts.contacto && r.celular ? `<div class="repc-b"><a class="btn-c" href="tel:${esc(r.celular)}">${icoW("phone")} Llamar</a><a class="btn-c wa" href="${esc(wa(r.celular))}" target="_blank" rel="noopener">${icoW("wa")} WhatsApp</a></div>` : ""}`;
 }
 
 /* ---------- Compartir ruta: enlace secreto que se ve sin cuenta ---------- */
@@ -159,32 +172,49 @@ async function paginaEnviar() {
 async function paginaEnvio() {
   const box = $("#envioBox"); if (!box) return; const c = params.get("c");
   if (!YO) { box.innerHTML = `<div class="vacio">${icoW("box", "xl")}<h2>Entra para ver tu envío</h2><button class="btn btn-red" id="evE">Entrar con Google</button></div>`; $("#evE").onclick = () => pedirEntrar("Entra con la cuenta con la que hiciste el envío."); return; }
-  let EN = null, OFS = [], PRIV = null, M = null, firma = "", pararOf = null, reloj = null;
-  const priv = await DB.get(`envios/${c}/priv`, "datos").catch(() => null); PRIV = priv;
-  const pintar = async () => {
-    const e = EN; if (!e) return; const [tit] = EST_E[e.estado] || [e.estado];
+  let EN = null, OFS = [], PRIV = null, M = null, firma = "", firmaM = "", pararOf = null, ORD = "cerca", SEL = null;
+  PRIV = await DB.get(`envios/${c}/priv`, "datos").catch(() => null);
+  box.innerHTML = `<div id="evMapaW"></div><div id="evCont"></div>`;
+  const kmOf = o => o.ubic && EN ? distanciaKm(o.ubic, EN.origen) : o.dist != null ? +o.dist : null;
+  const ordenadas = () => OFS.slice().sort(ORD === "precio" ? (a, b) => a.precio - b.precio : ORD === "estrellas" ? (a, b) => (b.rep?.estrellas || 0) - (a.rep?.estrellas || 0) : (a, b) => (kmOf(a) ?? 99) - (kmOf(b) ?? 99));
+  const filaOf = (o, i) => { const km = kmOf(o), cerca = ORD === "cerca" && i === 0 && km != null && OFS.length > 1;
+    return `<div class="ofr ${SEL === o.id ? "sel" : ""}" data-of="${esc(o.id)}"><span class="repc-f">${avRep(o.rep)}</span>
+      <div class="ofr-t"><b>${esc((o.rep?.nombre || "").split(" ").slice(0, 2).join(" "))}</b><span class="repc-s">${o.rep?.estrellas ? `<em>${icoW("star")}${(+o.rep.estrellas).toFixed(1)}</em>` : `<em class="nuevo">Nuevo</em>`}<span>${esc([vehNom(o.rep?.vehiculo), o.rep?.marca].filter(Boolean).join(" · "))}</span></span>
+</div>
+      <div class="ofr-p"><b>${S(o.precio)}</b>${o.precio === EN.oferta ? `<small class="tg ok">Acepta tu precio</small>` : `<small class="tg">Contraoferta</small>`}</div>
+      <span class="ofr-d">${km != null ? `${icoW("clock")} a ${minDe(km)} min de ti <i>· ${km.toFixed(1)} km</i>` : "Distancia no disponible"}${cerca ? `<small class="tg cerca">Más cerca</small>` : ""}</span>
+      <button class="btn btn-red" data-elegir="${esc(o.id)}">Elegir</button></div>`; };
+  const ptsMapa = e => e.estado === "buscando" ? [{ ...e.origen, html: mkRadar(), tam: [120, 120], ancla: [60, 60], z: -100 }, ...OFS.filter(o => o.ubic).map(o => ({ ...o.ubic, html: mkRep(o.rep, S(o.precio), SEL === o.id), tam: [64, 64], ancla: [32, 26], z: SEL === o.id ? 900 : 300, click: () => { SEL = o.id; pintar(true); $(`[data-of="${o.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }); } }))]
+    : ["asignado", "camino"].includes(e.estado) ? [{ ...e.origen, color: "#E63946", txt: "A" }, { ...e.destino, color: "#1A1430", txt: "B" }, e.repartidor?.ubic && { ...e.repartidor.ubic, html: mkMoto(e.repartidor), tam: [46, 46], ancla: [23, 23], z: 500 }] : [];
+  const pintar = async forzar => {
+    const e = EN; if (!e) return;
     const resta = Math.max(0, BUSQUEDA_MIN * 60 - Math.round((Date.now() - new Date(e.buscadoEn)) / 1000)), vencida = e.estado === "buscando" && resta === 0;
-    const pasos = [["asignado", "Repartidor asignado"], ["camino", "Paquete recogido"], ["entregado", "Entregado"]], idx = { asignado: 0, camino: 1, entregado: 2 }[e.estado] ?? -1;
-    const html = `<div class="trk env-trk"><small>${esc(c)} · ${TAM[e.tamano]?.[0] || ""}</small><h1>${e.estado === "buscando" ? (vencida ? "Nadie aceptó todavía" : "Buscando repartidor…") : esc(tit)}</h1>
-        ${e.estado === "buscando" ? `<div class="busca"><span class="radar-w"></span><div><small>Tu oferta</small><b>${S(e.oferta)}</b></div><div class="bus-t">${vencida ? "Sube tu oferta para que más repartidores se animen." : `Quedan <b id="evT">{{T}}</b>`}</div></div>`
-          : e.estado === "cancelado" ? "" : `<ol class="pasos">${pasos.map(([k, t], i) => `<li class="${i < idx || e.estado === "entregado" ? "done" : i === idx ? "now" : ""}"><i>${i + 1}</i><span>${t}</span></li>`).join("")}</ol>`}
-        ${e.repartidor && e.estado !== "cancelado" ? tarjetaRep(e.repartidor, { contacto: e.estado !== "entregado" }) : ""}</div>
-      ${e.estado === "buscando" ? `<section class="det"><h3>Contraofertas ${OFS.length ? `<span class="cnt-b">${OFS.length}</span>` : ""}</h3>
-          ${OFS.map(o => `<div class="ofr">${tarjetaRep(o.rep, { claro: true })}<div class="ofr-b"><div><small>${o.dist != null ? `a ${(+o.dist).toFixed(1)} km de tu paquete` : ""}</small><b>${S(o.precio)}</b></div><button class="btn btn-red" data-elegir="${esc(o.id)}">Elegir</button></div></div>`).join("")
-            || `<p class="muted">Cuando un repartidor te mande un precio distinto, aparece aquí. Si aceptan tu oferta, se asigna solo.</p>`}</section>
-        <section class="det"><h3>Subir mi oferta</h3><div class="subir">${[1, 2, 5].map(n => `<button class="btn btn-light" data-subir="${n}">+ S/ ${n}</button>`).join("")}</div>
+    const reloj = `${Math.floor(resta / 60)}:${String(resta % 60).padStart(2, "0")}`, t = $("#evT"); if (t) t.textContent = reloj;
+    // Mapa (una sola vez; luego solo se mueven los puntos)
+    const pts = ptsMapa(e), W = $("#evMapaW");
+    if (!pts.length) { W.innerHTML = ""; M = null; firmaM = ""; }
+    else { const fm = e.estado + JSON.stringify(pts.map(x => x && [x.lat, x.lng, x.z])) + SEL; if (!M) { W.innerHTML = `<div class="mapa sg-map" id="evMapa"></div>`; firmaM = fm; M = await mapaPuntos($("#evMapa"), pts); } else if (fm !== firmaM) { firmaM = fm; M.pintar(pts); } }
+    const pasos = [["asignado", "Asignado", "user"], ["camino", "Recogido", "box"], ["entregado", "Entregado", "flag"]], idx = { asignado: 0, camino: 1, entregado: 2 }[e.estado] ?? -1;
+    const tit = e.estado === "buscando" ? (vencida ? "Nadie respondió todavía" : OFS.length ? "Elige a tu repartidor" : "Buscando repartidor") : e.estado === "asignado" ? "Tu repartidor va a recoger el paquete" : e.estado === "camino" ? "Tu paquete va en camino" : e.estado === "entregado" ? "Paquete entregado" : e.estado === "cancelado" ? "Envío cancelado" : (EST_E[e.estado] || [e.estado])[0];
+    const kmR = e.repartidor?.ubic ? distanciaKm(e.repartidor.ubic, e.estado === "camino" ? e.destino : e.origen) : null;
+    const html = `<section class="sg-card sg-est"><div class="sg-o"><span>Envío · ${esc(TAM[e.tamano]?.[0] || "")}</span><span class="mono">${esc(c)}</span></div><h1 class="sg-h">${tit}</h1>
+        ${e.estado === "buscando" ? `<p class="sg-sub">${vencida ? "Sube tu oferta para que más repartidores respondan." : OFS.length ? "Mira en el mapa quién está más cerca y elige al que prefieras." : "Avisamos a los repartidores cercanos. Sus respuestas aparecen aquí y en el mapa."}</p>
+          <div class="sg-of"><div><small>Tu oferta</small><b>${S(e.oferta)}</b></div><div><small>${vencida ? "Búsqueda" : "Tiempo restante"}</small><b id="evT">${vencida ? "Terminó" : "{{T}}"}</b></div></div>${vencida ? "" : `<div class="sg-bar"><i></i></div>`}`
+        : e.estado === "cancelado" ? "" : `${kmR != null && e.estado !== "entregado" ? `<span class="sg-chip">${icoW("clock")} ${e.estado === "camino" ? "Llega" : "Recoge"} en ~${minDe(kmR)} min</span>` : ""}${pasosHTML(pasos, idx, e.estado === "entregado")}`}</section>
+      ${e.estado === "buscando" ? `<section class="sg-card"><div class="sg-lh"><h3 class="sg-l">Repartidores ${OFS.length ? `<span class="cnt-b">${OFS.length}</span>` : ""}</h3>
+          ${OFS.length > 1 ? `<div class="seg-o">${[["cerca", "Más cerca"], ["precio", "Menor precio"], ["estrellas", "Mejor calificado"]].map(([k, t]) => `<button class="${ORD === k ? "on" : ""}" data-ord="${k}">${t}</button>`).join("")}</div>` : ""}</div>
+          ${ordenadas().map(filaOf).join("") || `<div class="ofr-vacio"><span class="sk"></span><span class="sk"></span><p class="muted sm">Esperando respuestas…</p></div>`}</section>
+        <section class="sg-card"><h3 class="sg-l">¿Nadie responde? Sube tu oferta</h3><div class="subir">${[1, 2, 5].map(n => `<button class="btn btn-light" data-subir="${n}">+ S/ ${n}</button>`).join("")}</div>
           ${vencida ? `<button class="btn btn-red btn-lg" data-subir="0">Volver a buscar con ${S(e.oferta)}</button>` : ""}<button class="btn-link danger" id="evCan">Cancelar envío</button></section>` : ""}
-      ${["asignado", "camino"].includes(e.estado) ? `<div class="mapa trk-m" id="evMapa"></div><p class="muted sm leyenda"><i class="lg a">A</i> recojo · <i class="lg b">B</i> entrega${e.repartidor?.ubic ? " · 🛵 repartidor en vivo" : ""}</p>
-        <button class="btn btn-dark btn-lg" id="evShare">${icoW("share")} Compartir ruta con quien recibe</button>` : ""}
+      ${e.repartidor && !["buscando", "cancelado"].includes(e.estado) ? `<section class="sg-card"><h3 class="sg-l">${e.estado === "entregado" ? "Te lo llevó" : "Tu repartidor"}</h3>${tarjetaRep(e.repartidor, { contacto: e.estado !== "entregado" })}</section>` : ""}
+      ${["asignado", "camino"].includes(e.estado) ? `<button class="btn btn-light btn-lg sg-share" id="evShare">${icoW("share")} Compartir ruta con quien recibe</button>` : ""}
       ${e.estado === "entregado" ? `<div id="evCal"></div>` : ""}${["buscando", "asignado", "camino"].includes(e.estado) ? `<div id="evAv"></div>` : ""}
-      <section class="det"><h3>Detalle</h3><dl class="dlw"><dt><i class="lg a">A</i> Recojo</dt><dd>${esc(e.origen.texto)}${e.origen.referencia ? ` · ${esc(e.origen.referencia)}` : ""}<small>${esc(e.origen.dis)}, ${esc(e.origen.provincia)}</small></dd>
+      <section class="sg-card"><h3 class="sg-l">Detalle</h3><dl class="dlw"><dt><i class="lg a">A</i> Recojo</dt><dd>${esc(e.origen.texto)}${e.origen.referencia ? ` · ${esc(e.origen.referencia)}` : ""}<small>${esc(e.origen.dis)}, ${esc(e.origen.provincia)}</small></dd>
         <dt><i class="lg b">B</i> Entrega</dt><dd>${esc(e.destino.texto)}${e.destino.referencia ? ` · ${esc(e.destino.referencia)}` : ""}<small>${esc(e.destino.dis)}, ${esc(e.destino.provincia)}${e.interprov ? " · interprovincial" : ""}</small></dd>
         ${PRIV ? `<dt>Recibe</dt><dd>${esc(PRIV.receptor.nombre)} · ${esc(PRIV.receptor.celular)}</dd>` : ""}<dt>Contenido</dt><dd>${esc(e.contenido)} · ${esc(TAM[e.tamano]?.[0] || "")}</dd>
         <dt>Precio</dt><dd><b>${S(e.precio ?? e.oferta)}</b> · paga ${e.paga === "recibe" ? "quien recibe, al entregar" : "quien envía, al recoger"}<small>${e.km} km aprox.</small></dd></dl></section>
-      <div class="acts"><a class="btn btn-light" href="enviar">${icoW("plus")} Nuevo envío</a></div>`;
-    const reloj = `${Math.floor(resta / 60)}:${String(resta % 60).padStart(2, "0")}`, t = $("#evT"); if (t) t.textContent = reloj;   // solo el reloj, sin repintar los botones
-    if (html === firma) return; firma = html; box.innerHTML = html.replace("{{T}}", reloj);
-    const el = $("#evMapa"); if (el) M = await mapaPuntos(el, [{ ...e.origen, color: "#E63946", txt: "A" }, { ...e.destino, color: "#1A1430", txt: "B" }, e.repartidor?.ubic && { ...e.repartidor.ubic, color: "#FFC21A", txt: "🛵" }]);
+      <div class="acts sg-acts"><a class="btn btn-light" href="enviar">${icoW("plus")} Nuevo envío</a></div>`;
+    if (html === firma && !forzar) return; firma = html; $("#evCont").innerHTML = html.replace("{{T}}", reloj);
     if (e.estado === "entregado" && e.repartidor) cajaCalificar($("#evCal"), "envios", e.codigo, e.repartidor);
     cajaAvisos($("#evAv"));
   };
@@ -193,38 +223,39 @@ async function paginaEnvio() {
     try { const ok = await DB.transaccion(async (get, set) => { const x = await get("envios", c); if (!x || x.estado !== "buscando") return false;
         set("envios", c, { estado: "asignado", repUid: o.repUid, repartidor: o.rep, precio: o.precio, asignadoEn: new Date().toISOString(), actualizado: new Date().toISOString() }); return true; });
       if (!ok) return toast("Este envío ya tiene repartidor", true);
-      DB.set("rastreo", EN.rastreo, { estado: "asignado", repartidor: { ...o.rep } }).catch(() => {}); toast(`✅ ${o.rep.nombre.split(" ")[0]} va por tu paquete`);
+      DB.set("rastreo", EN.rastreo, { estado: "asignado", repartidor: { ...o.rep } }).catch(() => {}); toast(`${o.rep.nombre.split(" ")[0]} va por tu paquete`);
     } catch (x) { console.error(x); toast("No se pudo elegir: " + (x.code || x.message), true); }
   };
   box.onclick = async e => {
-    const el = e.target.closest("[data-elegir]"), su = e.target.closest("[data-subir]");
+    const el = e.target.closest("[data-elegir]"), su = e.target.closest("[data-subir]"), od = e.target.closest("[data-ord]"), fo = e.target.closest("[data-of]");
     if (el) return elegir(el.dataset.elegir);
+    if (od) { ORD = od.dataset.ord; return pintar(true); }
+    if (fo) { SEL = fo.dataset.of; const o = OFS.find(x => x.id === SEL); if (o?.ubic && M) M.mapa.setView([o.ubic.lat, o.ubic.lng], 15); return pintar(true); }
     if (su) { const n = +su.dataset.subir; await DB.set("envios", c, { oferta: r2(EN.oferta + n), buscadoEn: new Date().toISOString(), actualizado: new Date().toISOString() }); return toast(n ? `Subiste tu oferta a ${S(EN.oferta + n)}` : "Volvimos a buscar"); }
     if (e.target.closest("#evCan")) { if (!confirm("¿Cancelar este envío?")) return; await DB.batch([{ op: "set", col: "envios", id: c, data: { estado: "cancelado", actualizado: new Date().toISOString() } }, { op: "set", col: "rastreo", id: EN.rastreo, data: { estado: "cancelado" } }]); return toast("Envío cancelado"); }
-    if (e.target.closest("#evShare")) compartirRuta(EN.rastreo, `📦 ${PRIV?.receptor?.nombre?.split(" ")[0] || "Hola"}, te envié un paquete por Apamuy${EN.repartidor ? ` con ${EN.repartidor.nombre.split(" ")[0]} (${EN.repartidor.placa || vehTxt(EN.repartidor.vehiculo)})` : ""}.`);
+    if (e.target.closest("#evShare")) compartirRuta(EN.rastreo, `${PRIV?.receptor?.nombre?.split(" ")[0] || "Hola"}, te envié un paquete por Apamuy${EN.repartidor ? ` con ${EN.repartidor.nombre.split(" ")[0]} (${EN.repartidor.placa || vehNom(EN.repartidor.vehiculo)})` : ""}.`);
   };
   DB.escuchar("envios", c, e => {
     if (!e) { box.innerHTML = `<div class="vacio">${icoW("box", "xl")}<h2>No encontramos el envío ${esc(c)}</h2><a href="mis-pedidos">Ver mis pedidos</a></div>`; return; }
     const antes = EN; EN = e;
-    if (antes && antes.estado !== e.estado) { navigator.vibrate?.(250); toast(EST_E[e.estado]?.[0] || "Tu envío se actualizó"); }
-    if (e.estado === "buscando" && !pararOf) pararOf = DB.escucharLista(`envios/${c}/ofertas`, [], l => { const n = l.length > OFS.length && OFS.length !== null; OFS = l.sort((a, b) => a.precio - b.precio); if (n && antes) { navigator.vibrate?.(200); toast("💬 Nueva contraoferta"); } pintar(); });
+    if (antes && antes.estado !== e.estado) { navigator.vibrate?.(250); toast(e.estado === "asignado" ? "Tu repartidor va por el paquete" : EST_E[e.estado]?.[0] || "Tu envío se actualizó"); }
+    if (e.estado === "buscando" && !pararOf) pararOf = DB.escucharLista(`envios/${c}/ofertas`, [], l => { const n = l.length > OFS.length; OFS = l; if (n && antes) { navigator.vibrate?.(200); toast("Un repartidor respondió"); } pintar(); });
     if (e.estado !== "buscando" && pararOf) { pararOf(); pararOf = null; }
-    if (M && e.repartidor?.ubic && firma) M.pintar([{ ...e.origen, color: "#E63946", txt: "A" }, { ...e.destino, color: "#1A1430", txt: "B" }, { ...e.repartidor.ubic, color: "#FFC21A", txt: "🛵" }]);
     pintar();
   });
-  reloj = setInterval(() => { if (EN && EN.estado === "buscando") pintar(); }, 1000);
+  setInterval(() => { if (EN && EN.estado === "buscando") pintar(); }, 1000);
 }
 
 /* =========== RASTREO PÚBLICO (sin cuenta) =========== */
 function paginaRastreo() {
   const box = $("#rastreoBox"); if (!box) return; const t = params.get("t"); let M = null, firma = "";
   if (!t) { box.innerHTML = `<div class="vacio">${icoW("pin", "xl")}<h2>Enlace incompleto</h2><p class="muted">Pide que te lo vuelvan a enviar.</p></div>`; return; }
-  const TIT = { buscando: "Buscando repartidor", nuevo: "Pedido recibido", cocina: "Se está preparando", listo: "Listo para salir", asignado: "El repartidor va a recogerlo", camino: "¡Va en camino hacia ti!", entregado: "¡Entregado!", cancelado: "Cancelado", anulado: "Cancelado" };
+  const TIT = { buscando: "Buscando repartidor", nuevo: "Pedido recibido", cocina: "Se está preparando", listo: "Listo para salir", asignado: "El repartidor va a recogerlo", camino: "Va en camino hacia ti", entregado: "Entregado", cancelado: "Cancelado", anulado: "Cancelado" };
   DB.escuchar("rastreo", t, async r => {
     if (!r) { box.innerHTML = `<div class="vacio">${icoW("pin", "xl")}<h2>Este enlace no existe o venció</h2></div>`; return; }
-    const pts = [r.origen && { ...r.origen, color: "#E63946", txt: r.tipo === "envio" ? "A" : "🏪" }, r.destino && { ...r.destino, color: "#1A1430", txt: r.tipo === "envio" ? "B" : "🏠" }, r.ubic && { ...r.ubic, color: "#FFC21A", txt: "🛵" }];
+    const pts = [r.origen && (r.tipo === "envio" ? { ...r.origen, color: "#E63946", txt: "A" } : { ...r.origen, ...pinSvg("store", "#E63946") }), r.destino && (r.tipo === "envio" ? { ...r.destino, color: "#1A1430", txt: "B" } : { ...r.destino, ...pinSvg("home", "#1A1430") }), r.ubic && { ...r.ubic, html: mkMoto(r.repartidor), tam: [46, 46], ancla: [23, 23], z: 500 }];
     const html = `<div class="trk"><small>${esc(r.titulo || "Apamuy")}${r.para ? ` · para ${esc(r.para)}` : ""}</small><h1>${esc(TIT[r.estado] || r.estado)}</h1>${r.repartidor ? tarjetaRep(r.repartidor, { contacto: !["entregado", "cancelado", "anulado"].includes(r.estado) }) : ""}</div>
-      ${!["entregado", "cancelado", "anulado"].includes(r.estado) ? `<div class="mapa trk-m" id="rtMapa"></div><p class="muted sm">${r.ubic ? `🛵 Ubicación en vivo · actualizada ${hace(r.ubic.t)}` : "Verás al repartidor en el mapa cuando salga."}</p>` : ""}
+      ${!["entregado", "cancelado", "anulado"].includes(r.estado) ? `<div class="mapa trk-m" id="rtMapa"></div><p class="muted sm">${r.ubic ? `Ubicación en vivo · actualizada ${hace(r.ubic.t)}` : "Verás al repartidor en el mapa cuando salga."}</p>` : ""}
       ${r.destino?.texto ? `<section class="det"><h3>Entrega en</h3><p>${esc(r.destino.texto)}</p></section>` : ""}
       <section class="det promo-mini">${icoW("box")}<div><b>¿Tú también quieres enviar algo?</b><small>Con Apamuy tú pones el precio.</small></div><a class="btn btn-red btn-sm" href="enviar">Enviar</a></section>`;
     if (html !== firma) { firma = html; box.innerHTML = html; const el = $("#rtMapa"); M = el ? await mapaPuntos(el, pts) : null; } else if (M) M.pintar(pts);
