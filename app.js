@@ -146,7 +146,12 @@ async function paginaInicio() {
     : RUBROS.map(r => `<a class="rb" href="./?r=${encodeURIComponent(r.id)}" style="--rb:${esc(r.color || "#FFF1E6")}">${r.imagen ? `<img src="${esc(imgUrl(r.imagen))}" alt="" loading="lazy">` : ""}<span>${esc(r.nombre)}</span></a>`).join("");
   // Banners de la ciudad
   const bs = banners.filter(b => b.activo !== false && (!b.prov || b.prov === provKey(c.dep, c.prov))).sort((a, b) => (a.orden ?? 9) - (b.orden ?? 9));
-  $("#banners").innerHTML = bs.map(b => `<a class="bn" href="${esc(enlaceBanner(b))}" style="--bn:${esc(b.color || "#E63946")}"><div><b>${esc(b.titulo || "")}</b><p>${esc(b.texto || "")}</p>${b.boton ? `<span>${esc(b.boton)} →</span>` : ""}</div>${b.imagen ? `<img src="${esc(imgUrl(b.imagen))}" alt="" loading="lazy" onerror="this.remove()">` : ""}</a>`).join("");
+  // Banners: la imagen llena todo el banner y el botón va adentro, abajo a la derecha. Sin imagen: estilo de color (como antes)
+  $("#banners").innerHTML = bs.map(b => b.imagen
+    ? `<a class="bnx" href="${esc(enlaceBanner(b))}"><img src="${esc(imgUrl(b.imagen))}" alt="${esc(b.titulo || "")}" loading="lazy" onerror="this.remove()">${b.titulo ? `<h3>${esc(b.titulo)}</h3>` : ""}${b.boton ? `<span class="go">${esc(b.boton)} →</span>` : ""}</a>`
+    : `<a class="bn" href="${esc(enlaceBanner(b))}" style="--bn:${esc(b.color || "#E63946")}"><div><b>${esc(b.titulo || "")}</b><p>${esc(b.texto || "")}</p>${b.boton ? `<span>${esc(b.boton)} →</span>` : ""}</div></a>`).join("");
+  const dots = $("#bnDots"); if (dots) { dots.innerHTML = bs.length > 1 ? bs.map((_, i) => `<i class="${i ? "" : "on"}"></i>`).join("") : ""; dots.hidden = bs.length < 2; }
+  iniciarBanners(bs.length);
   $("#banners").hidden = !bs.length;
   window.bloqueBuscar && bloqueBuscar(ns, rid);
   // Carrusel de accesos: paquete y repartidor solo en el inicio; repuestos/auxilio también dentro de su categoría
@@ -195,6 +200,18 @@ async function paginaInicio() {
   $("#buscar").oninput = e => { FILTRO.q = e.target.value; pintar(); };
 }
 
+/* Carrusel de banners: puntitos que siguen al deslizar y avance solo cada 5 s (se pausa al tocar) */
+let BN_T = null;
+function iniciarBanners(n) {
+  const B = $("#banners"), D = $("#bnDots"); clearInterval(BN_T); if (!B || n < 2) return;
+  const idx = () => { const w = B.firstElementChild?.offsetWidth || 1; return Math.round(B.scrollLeft / (w + 12)); };
+  const marcar = () => D && [...D.children].forEach((d, i) => d.classList.toggle("on", i === idx()));
+  B.onscroll = () => requestAnimationFrame(marcar);
+  let pausa = 0; B.addEventListener("pointerdown", () => { pausa = Date.now(); }, { passive: true }); B.addEventListener("touchstart", () => { pausa = Date.now(); }, { passive: true });
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  BN_T = setInterval(() => { if (document.hidden || Date.now() - pausa < 8000 || !document.body.contains(B)) return;
+    const w = B.firstElementChild.offsetWidth + 12, sig = idx() + 1 >= n ? 0 : idx() + 1; B.scrollTo({ left: sig * w, behavior: "smooth" }); }, 5000);
+}
 // Si llegó información nueva (negocios, banners, portada), se vuelve a pintar el inicio sin recargar
 let REPINTA = null;
 function repintarInicio() { if (!$("#negocios")) return; clearTimeout(REPINTA); REPINTA = setTimeout(() => { aplicarTextos(); paginaInicio(); }, 150); }

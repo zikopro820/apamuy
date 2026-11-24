@@ -539,3 +539,14 @@ button.ck-row:hover { border-color: #d9cfc0; background: #fffdf9; }
 .top-n a:hover { background: rgba(0, 0, 0, .12); } .top .ins { background: #fff; color: var(--red); }
 @media (min-width: 701px) { .top { flex-wrap: nowrap; padding: 12px 24px; } .top-dir { order: 0; flex: 1 1 auto; max-width: 420px; } .brand { flex: none; } }
 .top-n .yo-b { border-radius: 50%; background: #fff; color: var(--red) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, .15); }
+
+/* ===== v7 · Banners con imagen completa ===== */
+.banners { grid-auto-columns: 86%; }
+@media (min-width: 701px) { .banners { grid-auto-columns: minmax(320px, 400px); } }
+.bnx { position: relative; display: block; aspect-ratio: 1 / 1; border-radius: 22px; overflow: hidden; scroll-snap-align: start; text-decoration: none; background: #EFE7E0; box-shadow: 0 6px 20px rgba(26, 20, 48, .14); }
+.bnx img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.bnx h3 { position: absolute; left: 16px; bottom: 16px; right: 46%; margin: 0; color: #fff; font: 700 1.25rem/1.15 var(--fd); z-index: 1; text-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+.bnx:has(h3)::after { content: ""; position: absolute; inset: auto 0 0 0; height: 45%; background: linear-gradient(transparent, rgba(0, 0, 0, .55)); }
+.bnx .go { position: absolute; right: 14px; bottom: 14px; z-index: 1; background: #fff; color: var(--red); font: 800 .9rem var(--f); padding: 10px 16px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0, 0, 0, .25); white-space: nowrap; }
+.bn-dots { display: flex; justify-content: center; gap: 6px; margin: 10px 0 4px; } .bn-dots[hidden] { display: none; }
+.bn-dots i { width: 7px; height: 7px; border-radius: 50%; background: #D9D1DD; transition: width .2s; } .bn-dots i.on { width: 20px; border-radius: 4px; background: var(--red); }
