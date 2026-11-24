@@ -529,3 +529,13 @@ button.ck-row:hover { border-color: #d9cfc0; background: #fffdf9; }
 .cal { border: 1px solid #F1EAE2; box-shadow: 0 2px 14px rgba(26, 20, 48, .06); margin-top: 12px; }
 
 .ofr-d { grid-column: 1 / -1; white-space: nowrap; margin-top: 4px; font-size: .86rem; } .ofr-d i { font-style: normal; color: var(--muted); font-weight: 600; } .ofr-d .tg { margin-left: 6px; }
+
+/* ===== v6 · Barra roja con el logo de Apamuy ===== */
+.top { background: var(--red); flex-wrap: wrap; row-gap: 10px; padding: 12px 16px 14px; }
+.brand { flex: 1; min-width: 0; } .brand img.brand-logo { width: 140px; height: auto; border-radius: 0; display: block; }
+.top-dir { order: 3; flex: 1 0 100%; max-width: none; background: rgba(0, 0, 0, .14); border-color: transparent; }
+.top-c { color: #fff !important; border-right-color: rgba(255, 255, 255, .25) !important; }
+.top .js-entrar { background: #fff; color: var(--red); box-shadow: 0 2px 8px rgba(0, 0, 0, .15); }
+.top-n a:hover { background: rgba(0, 0, 0, .12); } .top .ins { background: #fff; color: var(--red); }
+@media (min-width: 701px) { .top { flex-wrap: nowrap; padding: 12px 24px; } .top-dir { order: 0; flex: 1 1 auto; max-width: 420px; } .brand { flex: none; } }
+.top-n .yo-b { border-radius: 50%; background: #fff; color: var(--red) !important; box-shadow: 0 2px 8px rgba(0, 0, 0, .15); }
