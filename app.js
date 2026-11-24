@@ -204,12 +204,14 @@ async function paginaInicio() {
 let BN_T = null;
 function iniciarBanners(n) {
   const B = $("#banners"), D = $("#bnDots"); clearInterval(BN_T); if (!B || n < 2) return;
+  // Si todos los banners caben (PC con 4 o menos), no hace falta puntitos ni que pasen solos
+  const cabe = () => B.scrollWidth <= B.clientWidth + 4; requestAnimationFrame(() => { if (D) D.hidden = cabe(); });
   const idx = () => { const w = B.firstElementChild?.offsetWidth || 1; return Math.round(B.scrollLeft / (w + 12)); };
   const marcar = () => D && [...D.children].forEach((d, i) => d.classList.toggle("on", i === idx()));
   B.onscroll = () => requestAnimationFrame(marcar);
   let pausa = 0; B.addEventListener("pointerdown", () => { pausa = Date.now(); }, { passive: true }); B.addEventListener("touchstart", () => { pausa = Date.now(); }, { passive: true });
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  BN_T = setInterval(() => { if (document.hidden || Date.now() - pausa < 8000 || !document.body.contains(B)) return;
+  BN_T = setInterval(() => { if (cabe() || document.hidden || Date.now() - pausa < 8000 || !document.body.contains(B)) return;
     const w = B.firstElementChild.offsetWidth + 12, sig = idx() + 1 >= n ? 0 : idx() + 1; B.scrollTo({ left: sig * w, behavior: "smooth" }); }, 5000);
 }
 // Si llegó información nueva (negocios, banners, portada), se vuelve a pintar el inicio sin recargar

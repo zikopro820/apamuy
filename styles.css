@@ -550,3 +550,10 @@ button.ck-row:hover { border-color: #d9cfc0; background: #fffdf9; }
 .bnx .go { position: absolute; right: 14px; bottom: 14px; z-index: 1; background: #fff; color: var(--red); font: 800 .9rem var(--f); padding: 10px 16px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0, 0, 0, .25); white-space: nowrap; }
 .bn-dots { display: flex; justify-content: center; gap: 6px; margin: 10px 0 4px; } .bn-dots[hidden] { display: none; }
 .bn-dots i { width: 7px; height: 7px; border-radius: 50%; background: #D9D1DD; transition: width .2s; } .bn-dots i.on { width: 20px; border-radius: 4px; background: var(--red); }
+/* PC: 4 banners por fila, chicos como «Lo más recomendado» (el celular queda igual) */
+@media (min-width: 701px) {
+  .banners { grid-auto-columns: calc((100% - 3 * 14px) / 4); gap: 14px; justify-content: start; }
+  .bnx, .banners .bn { aspect-ratio: 1 / 1; border-radius: 18px; }
+  .banners .bn { min-height: 0; align-items: flex-end; padding: 16px; } .banners .bn b { font-size: 1.05rem; } .banners .bn p { font-size: .8rem; }
+  .bnx h3 { font-size: .98rem; left: 12px; bottom: 12px; } .bnx .go { font-size: .76rem; padding: 7px 11px; right: 10px; bottom: 10px; }
+}
