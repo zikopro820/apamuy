@@ -234,6 +234,7 @@ async function paginaNegocio() {
   if (!NEG || NEG.estado !== "activo" || NEG.bloqueoCobro) { box.innerHTML = `<div class="vacio">😕<h2>Este negocio no está disponible</h2><a class="btn btn-red" href="./">Ver otros negocios</a></div>`; return; }
   document.title = NEG.nombre + " · Apamuy";
   if (params.get("qr")) contarQR(NEG.id);
+  if (typeof iniciarMesa === "function") setTimeout(iniciarMesa, 0);
   [CATS, PRODS] = await Promise.all([DB.list(`negocios/${id}/categorias`), DB.list(`negocios/${id}/productos`)]);
   CATS.sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99)); PRODS = PRODS.filter(p => p.activo !== false).sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999));
   const RB = rubroDe(NEG.rubro || "comida"), SERV = RB.modo === "servicios"; window.SERV = SERV;
@@ -394,6 +395,7 @@ function Comprobante(box, total) {
 }
 
 async function checkout() {
+  { const M = typeof mesaActual === "function" && mesaActual(), c0 = CART.get(); if (M && c0.negocio === M.nid && window.NEG && NEG.id === M.nid && mesaOk(NEG)) return checkoutMesa(M); }
   const c = CART.get(), neg = (window.NEG && NEG.id === c.negocio) ? NEG : await DB.get("negocios", c.negocio);
   if (!neg || neg.estado !== "activo" || neg.bloqueoCobro) return toast("Este negocio no está disponible ahora", true);
   if (!estaAbierto(neg)) return toast(`${neg.nombre} está cerrado. Abre a las ${neg.abre}.`, true);
