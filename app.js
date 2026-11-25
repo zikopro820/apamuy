@@ -222,11 +222,18 @@ function aplicarTextos() { $$(".js-pie").forEach(e => e.textContent = CONF.web.p
 
 /* =========== NEGOCIO: su carta =========== */
 let NEG = null, CATS = [], PRODS = [];
+/* QR del negocio: cuenta el escaneo (1 por celular al día) y limpia la dirección */
+function contarQR(nid) {
+  try { const u = new URL(location.href); u.searchParams.delete("qr"); history.replaceState(null, "", u.pathname + u.search); } catch (e) {}
+  const k = "am_qr_" + nid, hoy = new Date().toISOString().slice(0, 10); if (store.get(k, "") === hoy) return; store.set(k, hoy);
+  DB.transaccion(async (get, set) => { const x = await get("escaneosQR", nid); set("escaneosQR", nid, { n: (x?.n || 0) + 1, ult: new Date().toISOString() }); }).catch(() => {});
+}
 async function paginaNegocio() {
   const box = $("#carta"); if (!box) return; const id = params.get("n");
   NEG = id ? await DB.get("negocios", id).catch(() => null) : null; window.NEG = NEG;
   if (!NEG || NEG.estado !== "activo" || NEG.bloqueoCobro) { box.innerHTML = `<div class="vacio">😕<h2>Este negocio no está disponible</h2><a class="btn btn-red" href="./">Ver otros negocios</a></div>`; return; }
   document.title = NEG.nombre + " · Apamuy";
+  if (params.get("qr")) contarQR(NEG.id);
   [CATS, PRODS] = await Promise.all([DB.list(`negocios/${id}/categorias`), DB.list(`negocios/${id}/productos`)]);
   CATS.sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99)); PRODS = PRODS.filter(p => p.activo !== false).sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999));
   const RB = rubroDe(NEG.rubro || "comida"), SERV = RB.modo === "servicios"; window.SERV = SERV;
