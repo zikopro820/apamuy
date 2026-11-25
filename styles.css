@@ -573,3 +573,12 @@ button.ck-row:hover { border-color: #d9cfc0; background: #fffdf9; }
 .mesa-tag { display: inline-block; background: #1A1430; color: #fff; border-radius: 10px; padding: 6px 10px; font-weight: 800; font-size: .82rem; margin-bottom: 8px; }
 .mesa-ck .btn-lg { width: 100%; margin-top: 8px; } .mesa-pie { text-align: center; margin-top: 8px; }
 .mesa-x { margin-left: auto; background: none; border: 0; color: #fff; opacity: .85; font: 600 .72rem/1.25 var(--f); text-align: right; cursor: pointer; flex: none; } .mesa-x u { font-weight: 800; }
+
+/* ===== Mudanza ===== */
+.promo.p-mud { background: linear-gradient(135deg, #0F7B6C, #19A38F); }
+.mud-t { grid-template-columns: repeat(2, 1fr); } .mud-rec { color: #17603A; font-weight: 700; font-size: .86rem; margin: 8px 0 4px; }
+.mud-asc { align-self: end; padding-bottom: 10px; }
+.seg4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .seg4 label { position: relative; } .seg4 input { position: absolute; opacity: 0; }
+.seg4 span { display: block; text-align: center; padding: 12px 0; border: 1.5px solid #E7E0EC; border-radius: 12px; font-weight: 800; cursor: pointer; background: #fff; }
+.seg4 input:checked + span { background: #1A1430; border-color: #1A1430; color: #fff; } .seg4 input:focus-visible + span { outline: 2px solid var(--red); }
+.mud-dat { background: #F1FAF7; border-radius: 14px; padding: 12px 14px; margin-top: 10px; font-size: .88rem; color: #0F5F54; } .mud-dat b { color: #0F5F54; }

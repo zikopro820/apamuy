@@ -156,6 +156,7 @@ async function paginaInicio() {
   window.bloqueBuscar && bloqueBuscar(ns, rid);
   // Carrusel de accesos: paquete y repartidor solo en el inicio; repuestos/auxilio también dentro de su categoría
   const pr = $(".promos"); if (pr) { const W2 = CONF.web, env = $("#prEnv"), rep = $("#prRep");
+    const mud = $("#prMud"); if (mud) mud.hidden = !!rid || W2.btnMud === false;
     if (env) { env.hidden = !!rid || !W2.btnEnvio; $("#prEnvT").textContent = W2.envTit; $("#prEnvX").textContent = W2.envTxt; }
     if (rep) { rep.hidden = !!rid || !W2.btnRep; $("#prRepT").textContent = W2.repTit; $("#prRepX").textContent = W2.repTxt; }
     pr.style.display = $$(".promo", pr).some(x => !x.hidden && !x.closest("[hidden]")) ? "" : "none"; }
@@ -644,7 +645,7 @@ if (/iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone) $$(".js-i
     if (u && !PERFIL) PERFIL = { nombre: u.nombre, email: u.email, direcciones: [] };
     const dirNueva = u && !DIR.get() && PERFIL.direcciones?.length; if (dirNueva) store.set("am_dir", PERFIL.direcciones[0]);
     if (u && window.Notification?.permission === "granted") activarAvisos("web", true);
-    encabezado(); if (dirNueva && portada) portada.then(() => window.recalcular && window.recalcular()); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEliminar(); paginaEnviar(); paginaEnvio(); paginaRastreo(); paginaLibro(); window.paginaBuscar && paginaBuscar();
+    encabezado(); if (dirNueva && portada) portada.then(() => window.recalcular && window.recalcular()); paginaNegocio(); paginaPedido(); paginaMisPedidos(); paginaPerfil(); paginaEliminar(); paginaEnviar(); window.paginaMudanza && paginaMudanza(); paginaEnvio(); paginaRastreo(); paginaLibro(); window.paginaBuscar && paginaBuscar();
     $$(".js-reparto").forEach(a => a.href = AP.reparto || "https://reparto.apamuy.app");
     $$(".js-anio").forEach(e => e.textContent = new Date().getFullYear());
     if (u && store.get("am_seguir", 0)) { store.del("am_seguir"); if (CART.cuenta()) abrirCarrito(); }
