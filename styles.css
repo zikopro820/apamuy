@@ -83,6 +83,7 @@ textarea:focus, input:focus, select:focus { border-color: var(--red); outline: n
 #ckD { display: grid; gap: 12px; } #ckD[hidden], #ckR[hidden] { display: none; } #ckD .btn { justify-self: start; }
 .ck-local { background: var(--bg); border-radius: 12px; padding: 12px; font-size: .92rem; }
 .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } @media (max-width: 420px) { .g2 { grid-template-columns: 1fr; } }
+[hidden] { display: none !important; }
 .resumen { background: var(--bg); border-radius: 12px; padding: 10px 14px; } .resumen > div { display: flex; justify-content: space-between; padding: 3px 0; } .resumen .t { border-top: 1px dashed #d9d2c4; margin-top: 4px; padding-top: 8px; font-size: 1.15rem; }
 .resumen .t b { color: var(--red); }
 /* pagos (módulo compartido) */
